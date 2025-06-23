@@ -46,7 +46,6 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
-    "corsheaders.middleware.CorsMiddleware",
     "uploader.middleware.UploadCorsMiddleware",  # Custom CORS middleware for upload endpoints
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
@@ -103,7 +102,7 @@ AUTH_PASSWORD_VALIDATORS = [
         "NAME": "users.password_validators.CustomCommonPasswordValidator",
     },
     {
-        # Checks whether the password ’isnt entirely numeric
+        # Checks whether the password 'isnt entirely numeric
         "NAME": "users.password_validators.CustomNumericPasswordValidator",
     },
 ]
@@ -204,7 +203,7 @@ REST_FRAMEWORK = {
     ],
 }
 
-CORS_ORIGIN_ALLOW_ALL = True
+CORS_ORIGIN_ALLOW_ALL = False
 
 # Domain Configuration for Development Environment
 MAIN_DOMAINS = [
@@ -394,7 +393,6 @@ CELERY_ALWAYS_EAGER = True
 
 # STATICFILES_STORAGE = "whitenoise.storage.CompressedStaticFilesStorage"
 DEBUG = True
-INSTALLED_APPS.append("corsheaders")
 
 PYSUBS_COMMAND = "pysubs2"
 

@@ -52,11 +52,9 @@ INSTALLED_APPS = [
     "djcelery_email",
     "tinymce",
     "captcha",
-    "corsheaders",  # Django CORS headers for cross-origin requests
 ]
 
 MIDDLEWARE = [
-    "corsheaders.middleware.CorsMiddleware",  # CORS middleware must be above CSRF middleware
     "uploader.middleware.UploadCorsMiddleware",  # Custom CORS middleware for upload endpoints
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
