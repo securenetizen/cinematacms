@@ -158,6 +158,10 @@
 <script src="{% static "js/add-media.js" %}"></script>
 <script>
 	document.addEventListener("DOMContentLoaded", function(event) {
+		/**
+		 * Get CSRF token from cookie
+		 * This is required for cross-origin requests to Django backend
+		 */
 		function getCSRFToken() {
 			var i, cookies, cookie, cookieVal = null;
 			if ( document.cookie && '' !== document.cookie ) {
@@ -174,15 +178,22 @@
 			}
 			return cookieVal;
 		}
+
+		/**
+		 * FineUploader configuration with CORS and CSRF support
+		 * - Uses chunked uploads for large files
+		 * - Sends credentials for cross-origin requests
+		 * - Includes X-CSRFToken header for CSRF protection
+		 */
 		var default_concurrent_chunked_uploader = new qq.FineUploader({
 			debug: false,
 			element: document.querySelector('.media-uploader'),
 			request: {
 				endpoint: '{{UPLOAD_HOST}}{% url 'uploader:upload' %}',
 				customHeaders: {
-					'X-CSRFToken': getCSRFToken('csrftoken'),
+					'X-CSRFToken': getCSRFToken('csrftoken')  // CSRF token from cookie
 				},
-				withCredentials: true,
+				withCredentials: true  // Send cookies with cross-origin requests
 			},
 			retry: {
 				enableAuto: true,
@@ -196,13 +207,13 @@
 				sizeLimit: {{UPLOAD_MAX_SIZE}},
 			},
 			cors: {
-				expected: true,
-				sendCredentials: true,
+				expected: true,  // Enable CORS support
+				sendCredentials: true  // Send credentials for CORS requests
 			},
 			chunking: {
-				enabled: true,
+				enabled: true,  // Enable chunked uploads
 				concurrent: {
-					enabled: true,
+					enabled: true  // Enable concurrent chunk uploads
 				},
 				success: {
 					endpoint: '{{UPLOAD_HOST}}{% url 'uploader:upload' %}?done',

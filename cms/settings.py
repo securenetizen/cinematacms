@@ -52,9 +52,11 @@ INSTALLED_APPS = [
     "djcelery_email",
     "tinymce",
     "captcha",
+    "corsheaders",  # Django CORS headers for cross-origin requests
 ]
 
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",  # CORS middleware must be above CSRF middleware
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -477,19 +479,6 @@ VIDEO_PLAYER_FEATURED_VIDEO_ON_INDEX_PAGE = False
 DJANGO_ADMIN_URL = "admin/"
 from .local_settings import *
 
-# Dynamic host configuration
-main_domain = FRONTEND_HOST.replace("http://", "").replace("https://", "")
-ALLOWED_HOSTS.extend([main_domain, UPLOAD_SUBDOMAIN])
-
-# Dynamic CSRF trusted origins
-CSRF_TRUSTED_ORIGINS.extend([
-    f"http://{main_domain}",
-    f"https://{main_domain}",
-    f"http://{UPLOAD_SUBDOMAIN}",
-    f"https://{UPLOAD_SUBDOMAIN}",
-])
-
-
 
 WHISPER_COMMAND = "/home/cinemata/bin/whisper"
 WHISPER_SIZE = "base"
@@ -502,3 +491,25 @@ ALLOWED_MEDIA_UPLOAD_TYPES = ["video"]
 
 RECAPTCHA_PRIVATE_KEY = ""
 RECAPTCHA_PUBLIC_KEY = ""
+
+# Domain Configuration - Make domains configurable from environment/local_settings
+MAIN_DOMAINS = [
+    "https://dev.cinemata.org",
+    "https://cinemata.org",
+    "https://stage.cinemata.org",
+]
+
+UPLOAD_DOMAINS = [
+    "https://dev-uploads.cinemata.org",
+    "https://uploads.cinemata.org",
+    "https://stage-uploads.cinemata.org",
+]
+
+# CORS Configuration for cross-origin requests
+# Required for upload subdomain to communicate with main domain
+CORS_ALLOW_CREDENTIALS = True  # Allow cookies and authentication headers
+CORS_ALLOWED_ORIGINS = MAIN_DOMAINS  # Main domains allowed for CORS requests
+
+# CSRF Configuration for cross-origin uploads
+# The upload subdomain needs to be trusted for CSRF token validation
+CSRF_TRUSTED_ORIGINS.extend(UPLOAD_DOMAINS)  # Upload subdomains trusted for CSRF

@@ -76,3 +76,14 @@ CSRF_TRUSTED_ORIGINS.extend([
 ])
 
 CORS_ORIGIN_ALLOW_ALL = True
+
+# Domain Configuration - Override in production environments
+MAIN_DOMAINS = [
+    f"http://{FRONTEND_DOMAIN}",
+    f"https://{FRONTEND_DOMAIN}",
+]
+
+UPLOAD_DOMAINS = [
+    f"http://{UPLOAD_SUBDOMAIN}",
+    f"https://{UPLOAD_SUBDOMAIN}",
+]

@@ -205,6 +205,21 @@ REST_FRAMEWORK = {
 
 CORS_ORIGIN_ALLOW_ALL = True
 
+# Domain Configuration for Development Environment
+MAIN_DOMAINS = [
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+    "http://dev.cinemata.org",
+    "https://dev.cinemata.org",
+]
+
+UPLOAD_DOMAINS = [
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+    "http://dev-uploads.cinemata.org",
+    "https://dev-uploads.cinemata.org",
+]
+
 SECRET_KEY = "2dii4cog7k=5n37$fz)8dst)kg(s3&10)^qa*gv(kk+nv-z&cu"
 # mediacms related
 

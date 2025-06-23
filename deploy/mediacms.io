@@ -54,7 +54,7 @@ server {
         return 301 http://cinemata.local$request_uri;
     }
 
-    # Handle file upload endpoint
+    # Handle file upload endpoint with dynamic CORS
     location /fu/ {
         if ($request_method = 'OPTIONS') {
             add_header 'Access-Control-Allow-Origin' '*' always;
