@@ -40,10 +40,12 @@ rm -rf tmp ffmpeg-release-amd64-static.tar.xz
 echo "ffmpeg installed to /usr/local/bin"
 
 read -p "Enter portal URL, or press enter for localhost : " FRONTEND_HOST
+read -p "Enter upload subdomain URL, or press enter for upload.localhost : " UPLOAD_HOST
 read -p "Enter portal name, or press enter for 'CinemataCMS : " PORTAL_NAME
 
 [ -z "$PORTAL_NAME" ] && PORTAL_NAME='CinemataCMS'
 [ -z "$FRONTEND_HOST" ] && FRONTEND_HOST='localhost'
+[ -z "$UPLOAD_HOST" ] && UPLOAD_HOST='upload.localhost'
 
 echo 'Creating database to be used in CinemataCMS'
 
@@ -69,8 +71,12 @@ SECRET_KEY=`python -c 'from django.core.management.utils import get_random_secre
 # remove http or https prefix
 FRONTEND_HOST=`echo "$FRONTEND_HOST" | sed -r 's/http:\/\///g'`
 FRONTEND_HOST=`echo "$FRONTEND_HOST" | sed -r 's/https:\/\///g'`
+UPLOAD_HOST=`echo "$UPLOAD_HOST" | sed -r 's/http:\/\///g'`
+UPLOAD_HOST=`echo "$UPLOAD_HOST" | sed -r 's/https:\/\///g'`
 
-sed -i s/localhost/$FRONTEND_HOST/g deploy/mediacms.io
+# Update nginx configuration to replace both main domain and upload subdomain
+sed -i "s/cinemata\.local/$FRONTEND_HOST/g" deploy/mediacms.io
+sed -i "s/upload\.cinemata\.local/$UPLOAD_HOST/g" deploy/mediacms.io
 
 FRONTEND_HOST_HTTP_PREFIX='http://'$FRONTEND_HOST
 
@@ -124,11 +130,12 @@ systemctl start nginx
 # attempt to get a valid certificate for specified domain
 
 if [ "$FRONTEND_HOST" != "localhost" ]; then
-    echo 'attempt to get a valid certificate for specified url $FRONTEND_HOST'
-    certbot --nginx -n --agree-tos --register-unsafely-without-email -d $FRONTEND_HOST
-    certbot --nginx -n --agree-tos --register-unsafely-without-email -d $FRONTEND_HOST
-    # unfortunately for some reason it needs to be run two times in order to create the entries
-    # and directory structure!!!
+    echo 'attempt to get a valid certificate for specified url $FRONTEND_HOST and $UPLOAD_HOST'
+    # Get certificate for both main domain and upload subdomain
+    if ! certbot --nginx -n --agree-tos --register-unsafely-without-email -d $FRONTEND_HOST -d $UPLOAD_HOST; then
+        echo "First certbot attempt failed, trying again..."
+        certbot --nginx -n --agree-tos --register-unsafely-without-email -d $FRONTEND_HOST -d $UPLOAD_HOST
+    fi
     systemctl restart nginx
 else
     echo "will not call certbot utility to update ssl certificate for url 'localhost', using default ssl certificate"

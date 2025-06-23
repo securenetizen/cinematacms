@@ -9,9 +9,16 @@ ALLOWED_HOSTS = [
     "127.0.0.1",
     "localhost",
 ]
+
+# CSRF Trusted Origins for upload subdomain
+CSRF_TRUSTED_ORIGINS = []
+
 INTERNAL_IPS = "127.0.0.1"
 FRONTEND_HOST = "http://cinemata.org"
 SSL_FRONTEND_HOST = FRONTEND_HOST.replace("http", "https")
+
+# Upload subdomain configuration
+UPLOAD_SUBDOMAIN = "upload.cinemata.local"
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -470,7 +477,17 @@ VIDEO_PLAYER_FEATURED_VIDEO_ON_INDEX_PAGE = False
 DJANGO_ADMIN_URL = "admin/"
 from .local_settings import *
 
-ALLOWED_HOSTS.append(FRONTEND_HOST.replace("http://", "").replace("https://", ""))
+# Dynamic host configuration
+main_domain = FRONTEND_HOST.replace("http://", "").replace("https://", "")
+ALLOWED_HOSTS.extend([main_domain, UPLOAD_SUBDOMAIN])
+
+# Dynamic CSRF trusted origins
+CSRF_TRUSTED_ORIGINS.extend([
+    f"http://{main_domain}",
+    f"https://{main_domain}",
+    f"http://{UPLOAD_SUBDOMAIN}",
+    f"https://{UPLOAD_SUBDOMAIN}",
+])
 
 WHISPER_COMMAND = "/home/cinemata/bin/whisper"
 WHISPER_SIZE = "base"

@@ -4,10 +4,13 @@ import os
 PORTAL_NAME = "EngageMedia Video"  #  this is shown on several places, eg on contact email, or html title
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "Europe/London"
-ALLOWED_HOSTS = ["*"]
+ALLOWED_HOSTS = ["*"]  # Development allows all hosts, but production should be more restrictive
 INTERNAL_IPS = "127.0.0.1"
-FRONTEND_HOST = "http://localhost:8000"
+FRONTEND_HOST = "http://cinemata.local:8000"
 SSL_FRONTEND_HOST = FRONTEND_HOST.replace("http", "https")
+
+# Upload subdomain configuration
+UPLOAD_SUBDOMAIN = "upload.cinemata.local"
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 

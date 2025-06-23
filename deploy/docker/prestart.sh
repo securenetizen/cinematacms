@@ -59,3 +59,8 @@ for service in $services; do
         fi
     fi
 done
+
+# Create user logos directory and default avatar
+echo "Creating default user avatar..."
+mkdir -p /home/cinemata/cinematacms/media_files/userlogos
+wget -O /home/cinemata/cinematacms/media_files/userlogos/user.jpg https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y
