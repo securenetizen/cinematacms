@@ -43,3 +43,34 @@ DEBUG = True
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [os.path.join(BASE_DIR, "static")]
 STATIC_ROOT = os.path.join(BASE_DIR, 'static_collected')
+
+
+# Upload subdomain configuration
+UPLOAD_SUBDOMAIN = os.getenv('UPLOAD_SUBDOMAIN', 'upload.cinemata.local')
+
+# Extract domain from FRONTEND_HOST for ALLOWED_HOSTS
+import re
+FRONTEND_DOMAIN = re.sub(r'^https?://', '', FRONTEND_HOST)
+
+# Configure ALLOWED_HOSTS to include both main domain and upload subdomain
+ALLOWED_HOSTS = [
+    'localhost',
+    '127.0.0.1',
+    FRONTEND_DOMAIN,
+    UPLOAD_SUBDOMAIN,
+    # Allow any subdomain of the main domain
+    f'.{FRONTEND_DOMAIN}' if '.' in FRONTEND_DOMAIN else FRONTEND_DOMAIN,
+]
+
+# Remove duplicates and empty entries
+ALLOWED_HOSTS = list(filter(None, list(set(ALLOWED_HOSTS))))
+
+# CSRF Trusted Origins for upload subdomain
+CSRF_TRUSTED_ORIGINS = []
+# Dynamic CSRF trusted origins
+CSRF_TRUSTED_ORIGINS.extend([
+    f"http://{FRONTEND_DOMAIN}",
+    f"https://{FRONTEND_DOMAIN}",
+    f"http://{UPLOAD_SUBDOMAIN}",
+    f"https://{UPLOAD_SUBDOMAIN}",
+])

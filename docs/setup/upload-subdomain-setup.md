@@ -96,14 +96,30 @@ chunking: {
 
 The `UPLOAD_HOST` variable is automatically generated based on the request protocol (HTTP/HTTPS) and the `UPLOAD_SUBDOMAIN` setting.
 
+## Environment Variable Configuration
+
+You can configure the upload subdomain using the `UPLOAD_SUBDOMAIN` environment variable:
+
+```bash
+# In your environment or .env file
+UPLOAD_SUBDOMAIN=upload.yourdomain.com
+```
+
+This simplifies configuration across different environments without hardcoding values in settings files.
+
 ## Customization
 
 ### Changing the Upload Subdomain
 
-To use a different upload subdomain, simply update the `UPLOAD_SUBDOMAIN` setting in your Django configuration:
+To use a different upload subdomain, you can either set an environment variable or update the Django configuration:
+
+```bash
+# Option 1: Environment variable (recommended)
+export UPLOAD_SUBDOMAIN="files.yourdomain.com"
+```
 
 ```python
-# In cms/settings.py or cms/local_settings.py
+# Option 2: In cms/settings.py or cms/local_settings.py
 UPLOAD_SUBDOMAIN = "files.yourdomain.com"  # Custom subdomain
 ```
 
@@ -114,17 +130,17 @@ The system will automatically:
 
 ### Environment-Specific Configuration
 
-You can configure different subdomains for different environments:
+You can configure different subdomains for different environments using environment variables:
 
-```python
+```bash
 # Development
-UPLOAD_SUBDOMAIN = "upload.cinemata.org"
+UPLOAD_SUBDOMAIN="upload-dev.cinemata.org"
 
 # Staging
-UPLOAD_SUBDOMAIN = "upload-staging.cinemata.org"
+UPLOAD_SUBDOMAIN="upload-staging.cinemata.org"
 
 # Production
-UPLOAD_SUBDOMAIN = "upload.cinemata.org"
+UPLOAD_SUBDOMAIN="upload.cinemata.org"
 ```
 
 ## Setup Instructions
