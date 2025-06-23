@@ -378,7 +378,6 @@ CELERY_ALWAYS_EAGER = True
 
 # STATICFILES_STORAGE = "whitenoise.storage.CompressedStaticFilesStorage"
 DEBUG = True
-CORS_ORIGIN_ALLOW_ALL = True
 INSTALLED_APPS.append("corsheaders")
 
 PYSUBS_COMMAND = "pysubs2"

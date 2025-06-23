@@ -52,11 +52,9 @@ INSTALLED_APPS = [
     "djcelery_email",
     "tinymce",
     "captcha",
-    "corsheaders",
 ]
 
 MIDDLEWARE = [
-    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -491,52 +489,7 @@ CSRF_TRUSTED_ORIGINS.extend([
     f"https://{UPLOAD_SUBDOMAIN}",
 ])
 
-# CORS configuration for django-cors-headers
-# Allow CORS for upload subdomain and main domain
-CORS_ALLOWED_ORIGINS = [
-    f"http://{main_domain}",
-    f"https://{main_domain}",
-    f"http://{UPLOAD_SUBDOMAIN}",
-    f"https://{UPLOAD_SUBDOMAIN}",
-]
 
-# Allow CORS credentials for authentication
-CORS_ALLOW_CREDENTIALS = True
-
-# Allowed headers for CORS requests
-CORS_ALLOW_HEADERS = [
-    'accept',
-    'accept-encoding',
-    'authorization',
-    'content-type',
-    'dnt',
-    'origin',
-    'user-agent',
-    'x-csrftoken',
-    'x-requested-with',
-    'range',
-    'cache-control',
-    'if-modified-since',
-]
-
-# Allowed methods for CORS requests
-CORS_ALLOW_METHODS = [
-    'DELETE',
-    'GET',
-    'OPTIONS',
-    'PATCH',
-    'POST',
-    'PUT',
-]
-
-# Headers to expose to the browser
-CORS_EXPOSE_HEADERS = [
-    'content-length',
-    'content-range',
-]
-
-# Preflight request max age (24 hours)
-CORS_PREFLIGHT_MAX_AGE = 86400
 
 WHISPER_COMMAND = "/home/cinemata/bin/whisper"
 WHISPER_SIZE = "base"

@@ -75,4 +75,4 @@ CSRF_TRUSTED_ORIGINS.extend([
     f"https://{UPLOAD_SUBDOMAIN}",
 ])
 
-CORS_
+CORS_ORIGIN_ALLOW_ALL = True
