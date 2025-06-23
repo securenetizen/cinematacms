@@ -66,6 +66,8 @@ services:
       TZ: Europe/London
     networks:
       - cinemata_network
+    ports:
+      - "5432:5432"
   redis:
     image: "redis:alpine"
     restart: always
@@ -73,6 +75,8 @@ services:
       - redis_data:/data
     networks:
       - cinemata_network
+    ports:
+      - "6379:6379"
   celery_worker:
     image: cinematacms/cinematacms-dev:latest
     deploy:

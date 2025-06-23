@@ -6,11 +6,11 @@ LANGUAGE_CODE = "en-us"
 TIME_ZONE = "Europe/London"
 ALLOWED_HOSTS = ["*"]  # Development allows all hosts, but production should be more restrictive
 INTERNAL_IPS = "127.0.0.1"
-FRONTEND_HOST = "http://cinemata.local:8000"
+FRONTEND_HOST = "http://localhost:8000"
 SSL_FRONTEND_HOST = FRONTEND_HOST.replace("http", "https")
 
 # Upload subdomain configuration
-UPLOAD_SUBDOMAIN = os.getenv('UPLOAD_SUBDOMAIN', 'upload.cinemata.local')
+UPLOAD_SUBDOMAIN = os.getenv('UPLOAD_SUBDOMAIN', 'localhost:8000')
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -203,6 +203,7 @@ REST_FRAMEWORK = {
     ],
 }
 
+CORS_ORIGIN_ALLOW_ALL = True
 
 SECRET_KEY = "2dii4cog7k=5n37$fz)8dst)kg(s3&10)^qa*gv(kk+nv-z&cu"
 # mediacms related

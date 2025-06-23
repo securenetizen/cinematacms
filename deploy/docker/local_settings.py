@@ -46,7 +46,7 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'static_collected')
 
 
 # Upload subdomain configuration
-UPLOAD_SUBDOMAIN = os.getenv('UPLOAD_SUBDOMAIN', 'upload.cinemata.local')
+UPLOAD_SUBDOMAIN = os.getenv('UPLOAD_SUBDOMAIN', 'localhost')
 
 # Extract domain from FRONTEND_HOST for ALLOWED_HOSTS
 import re
@@ -74,3 +74,5 @@ CSRF_TRUSTED_ORIGINS.extend([
     f"http://{UPLOAD_SUBDOMAIN}",
     f"https://{UPLOAD_SUBDOMAIN}",
 ])
+
+CORS_
