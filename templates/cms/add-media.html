@@ -178,7 +178,7 @@
 			debug: false,
 			element: document.querySelector('.media-uploader'),
 			request: {
-				endpoint: '{{UPLOAD_HOST}}{% url 'uploader: upload' %}',
+				endpoint: '{{UPLOAD_HOST}}{% url 'uploader:upload' %}',
 				customHeaders: {
 					'X-CSRFToken': getCSRFToken('csrftoken'),
 				},
@@ -200,7 +200,7 @@
 					enabled: true,
 				},
 				success: {
-					endpoint: '{{UPLOAD_HOST}}{% url 'uploader: upload' %}?done',
+					endpoint: '{{UPLOAD_HOST}}{% url 'uploader:upload' %}?done',
 				},
 			},
 			callbacks: {
