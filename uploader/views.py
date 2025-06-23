@@ -41,22 +41,10 @@ class FineUploaderView(generic.FormView):
 
     def make_response(self, data, **kwargs):
         """
-        Create JSON response with CORS headers for cross-origin requests
+        Create JSON response for upload requests.
+        CORS headers are handled by UploadCorsMiddleware.
         """
-        response = JsonResponse(data, **kwargs)
-
-        # Add CORS headers for cross-origin file uploads
-        origin = self.request.META.get('HTTP_ORIGIN', '')
-        # Check if origin is in allowed domains (main domains or upload domains)
-        allowed_origins = getattr(settings, 'CORS_ALLOWED_ORIGINS', []) + getattr(settings, 'UPLOAD_DOMAINS', [])
-        if origin in allowed_origins:
-            response['Access-Control-Allow-Origin'] = origin
-            response['Access-Control-Allow-Credentials'] = 'true'
-            response['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
-            response['Access-Control-Allow-Headers'] = 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,X-CSRFToken,Authorization'
-            response['Access-Control-Expose-Headers'] = 'Content-Length,Content-Range'
-
-        return response
+        return JsonResponse(data, **kwargs)
 
     def get_form(self, form_class=None):
         """Select appropriate form based on upload stage"""

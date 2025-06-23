@@ -57,6 +57,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",  # CORS middleware must be above CSRF middleware
+    "uploader.middleware.UploadCorsMiddleware",  # Custom CORS middleware for upload endpoints
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
