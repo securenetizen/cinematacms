@@ -13,6 +13,10 @@ ALLOWED_HOSTS = [
 # CSRF Trusted Origins for upload subdomain
 CSRF_TRUSTED_ORIGINS = []
 
+# NOTE: For production, set these to your parent domain, e.g., ".yourdomain.com"
+SESSION_COOKIE_DOMAIN = ".cinemata.org"
+CSRF_COOKIE_DOMAIN = ".cinemata.org"
+
 INTERNAL_IPS = "127.0.0.1"
 FRONTEND_HOST = "http://cinemata.org"
 SSL_FRONTEND_HOST = FRONTEND_HOST.replace("http", "https")
@@ -504,11 +508,17 @@ UPLOAD_DOMAINS = [
     "https://stage-uploads.cinemata.org",
 ]
 
-# CORS Configuration for cross-origin requests
-# Required for upload subdomain to communicate with main domain
-CORS_ALLOW_CREDENTIALS = True  # Allow cookies and authentication headers
-CORS_ALLOWED_ORIGINS = MAIN_DOMAINS  # Main domains allowed for CORS requests
+# Add hostnames to ALLOWED_HOSTS for cross-subdomain support
+ALLOWED_HOSTS.extend([
+    "dev.cinemata.org", "cinemata.org", "stage.cinemata.org",
+    "dev-uploads.cinemata.org", "uploads.cinemata.org", "stage-uploads.cinemata.org",
+])
 
-# CSRF Configuration for cross-origin uploads
-# The upload subdomain needs to be trusted for CSRF token validation
-CSRF_TRUSTED_ORIGINS.extend(UPLOAD_DOMAINS)  # Upload subdomains trusted for CSRF
+# CSRF and Session Cookie Configuration for Cross-Domain Authentication
+# NOTE: For production, ensure SESSION_COOKIE_DOMAIN and CSRF_COOKIE_DOMAIN are secure
+SESSION_COOKIE_DOMAIN = ".cinemata.org"
+CSRF_COOKIE_DOMAIN = ".cinemata.org"
+
+# Trust main and upload domains for CSRF purposes
+CSRF_TRUSTED_ORIGINS.extend(MAIN_DOMAINS)
+CSRF_TRUSTED_ORIGINS.extend(UPLOAD_DOMAINS)

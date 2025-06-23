@@ -12,6 +12,16 @@ SSL_FRONTEND_HOST = FRONTEND_HOST.replace("http", "https")
 # Upload subdomain configuration
 UPLOAD_SUBDOMAIN = os.getenv('UPLOAD_SUBDOMAIN', 'localhost:8000')
 
+# CSRF and Session Cookie Configuration for Cross-Domain Authentication
+SESSION_COOKIE_DOMAIN = None  # Use default for localhost
+CSRF_COOKIE_DOMAIN = None  # Use default for localhost
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+    "https://dev.cinemata.org",
+    "http://dev.cinemata.org",
+]
+
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 AUTHENTICATION_BACKENDS = (
@@ -209,16 +219,24 @@ CORS_ORIGIN_ALLOW_ALL = False
 MAIN_DOMAINS = [
     "http://localhost:8000",
     "http://127.0.0.1:8000",
-    "http://dev.cinemata.org",
     "https://dev.cinemata.org",
 ]
 
 UPLOAD_DOMAINS = [
     "http://localhost:8000",
     "http://127.0.0.1:8000",
-    "http://dev-uploads.cinemata.org",
     "https://dev-uploads.cinemata.org",
 ]
+
+# Add hostnames to ALLOWED_HOSTS for cross-subdomain support
+ALLOWED_HOSTS.extend([
+    "localhost", "127.0.0.1",
+    "dev.cinemata.org", "dev-uploads.cinemata.org",
+])
+
+# Trust main and upload domains for CSRF purposes
+CSRF_TRUSTED_ORIGINS.extend(MAIN_DOMAINS)
+CSRF_TRUSTED_ORIGINS.extend(UPLOAD_DOMAINS)
 
 SECRET_KEY = "2dii4cog7k=5n37$fz)8dst)kg(s3&10)^qa*gv(kk+nv-z&cu"
 # mediacms related
