@@ -123,7 +123,7 @@ cp deploy/mediacms.io_privkey.pem /etc/letsencrypt/live/$FRONTEND_HOST/privkey.p
 cp deploy/dhparams.pem /etc/nginx/dhparams/dhparams.pem
 cp deploy/mediacms.io /etc/nginx/sites-available/mediacms.io
 ln -s /etc/nginx/sites-available/mediacms.io /etc/nginx/sites-enabled/mediacms.io
-cp deploy/uwsgi_params /etc/nginx/sites-enabled/uwsgi_params
+cp deploy/uwsgi_params /etc/nginx/uwsgi_params
 cp deploy/nginx.conf /etc/nginx/
 systemctl stop nginx
 systemctl start nginx
