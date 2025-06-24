@@ -5,15 +5,33 @@ from celery.schedules import crontab
 PORTAL_NAME = "EngageMedia Video"  #  this is shown on several places, eg on contact email, or html title
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "Europe/London"
+
+# Domain Configuration
+MAIN_DOMAINS = [
+    "https://dev.cinemata.org",
+    "https://cinemata.org",
+    "https://stage.cinemata.org",
+]
+UPLOAD_DOMAINS = [
+    "https://dev-uploads.cinemata.org",
+    "https://uploads.cinemata.org",
+    "https://stage-uploads.cinemata.org",
+]
+ALL_DOMAINS_HOSTNAMES = [
+    url.replace("https://", "").replace("http://", "") for url in MAIN_DOMAINS + UPLOAD_DOMAINS
+]
+
 ALLOWED_HOSTS = [
     "127.0.0.1",
     "localhost",
+    *ALL_DOMAINS_HOSTNAMES,
 ]
 
 # CSRF Trusted Origins for upload subdomain
-CSRF_TRUSTED_ORIGINS = []
+CSRF_TRUSTED_ORIGINS = MAIN_DOMAINS + UPLOAD_DOMAINS
 
-# NOTE: For production, set these to your parent domain, e.g., ".yourdomain.com"
+# Cookie Settings for Cross-Domain Support
+# NOTE: For production, set these to your parent domain, e.g., ".yourdomain.org"
 SESSION_COOKIE_DOMAIN = ".cinemata.org"
 CSRF_COOKIE_DOMAIN = ".cinemata.org"
 SESSION_COOKIE_SAMESITE = 'None'
@@ -498,31 +516,3 @@ ALLOWED_MEDIA_UPLOAD_TYPES = ["video"]
 
 RECAPTCHA_PRIVATE_KEY = ""
 RECAPTCHA_PUBLIC_KEY = ""
-
-# Domain Configuration - Make domains configurable from environment/local_settings
-MAIN_DOMAINS = [
-    "https://dev.cinemata.org",
-    "https://cinemata.org",
-    "https://stage.cinemata.org",
-]
-
-UPLOAD_DOMAINS = [
-    "https://dev-uploads.cinemata.org",
-    "https://uploads.cinemata.org",
-    "https://stage-uploads.cinemata.org",
-]
-
-# Add hostnames to ALLOWED_HOSTS for cross-subdomain support
-ALLOWED_HOSTS.extend([
-    "dev.cinemata.org", "cinemata.org", "stage.cinemata.org",
-    "dev-uploads.cinemata.org", "uploads.cinemata.org", "stage-uploads.cinemata.org",
-])
-
-# CSRF and Session Cookie Configuration for Cross-Domain Authentication
-# NOTE: For production, ensure SESSION_COOKIE_DOMAIN and CSRF_COOKIE_DOMAIN are secure
-SESSION_COOKIE_DOMAIN = ".cinemata.org"
-CSRF_COOKIE_DOMAIN = ".cinemata.org"
-
-# Trust main and upload domains for CSRF purposes
-CSRF_TRUSTED_ORIGINS.extend(MAIN_DOMAINS)
-CSRF_TRUSTED_ORIGINS.extend(UPLOAD_DOMAINS)
