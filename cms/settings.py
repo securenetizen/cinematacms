@@ -16,6 +16,10 @@ CSRF_TRUSTED_ORIGINS = []
 # NOTE: For production, set these to your parent domain, e.g., ".yourdomain.com"
 SESSION_COOKIE_DOMAIN = ".cinemata.org"
 CSRF_COOKIE_DOMAIN = ".cinemata.org"
+SESSION_COOKIE_SAMESITE = 'None'
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SAMESITE = 'None'
+CSRF_COOKIE_SECURE = True
 
 INTERNAL_IPS = "127.0.0.1"
 FRONTEND_HOST = "http://cinemata.org"
