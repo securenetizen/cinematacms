@@ -44,7 +44,7 @@
 			debug: true,
 			element: document.querySelector('.media-uploader'),
 			request: {
-				endpoint: '<%= UPLOAD_HOST %>/fu/upload/',
+				endpoint: '/fu/upload/',
 				customHeaders: {
 					'X-CSRFToken': getCSRFToken('csrftoken')
 				}
@@ -58,7 +58,7 @@
 					enabled: true
 				},
 				success: {
-					endpoint: '<%= UPLOAD_HOST %>/fu/upload/?done'
+					endpoint: '/fu/upload/?done'
 				}
 			}
 		});
