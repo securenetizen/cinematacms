@@ -1,25 +1,77 @@
 server {
     listen 80;
     server_name cinemata.local
+
     gzip on;
     access_log /var/log/nginx/mediacms.io.access.log;
-    error_log  /var/log/nginx/mediacms.io.error.log warn;
 
-    # Redirect to HTTPS for security
-    return 301 https://$server_name$request_uri;
+    error_log  /var/log/nginx/mediacms.io.error.log  warn;
+
+#    # redirect to https if logged in
+#    if ($http_cookie ~* "sessionid") {
+#        rewrite  ^/(.*)$  https://cinemata.local/$1  permanent;
+#    }
+
+#    # redirect basic forms to https
+#    location ~ (login|login_form|register|mail_password_form)$ {
+#        rewrite  ^/(.*)$  https://cinemata.local/$1  permanent;
+#    }
+
+    location /static {
+        alias /home/cinemata/cinematacms/static ;
+    }
+
+    location /media/original {
+        alias /home/cinemata/cinematacms/media_files/original;
+    }
+
+    location /media {
+        alias /home/cinemata/cinematacms/media_files ;
+    }
+
+    location / {
+        add_header 'Access-Control-Allow-Origin' '*';
+        add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS';
+        add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range';
+        add_header 'Access-Control-Expose-Headers' 'Content-Length,Content-Range';
+
+        include /etc/nginx/uwsgi_params;
+        uwsgi_pass 127.0.0.1:9000;
+    }
 }
 
 # Upload subdomain for file uploads
 server {
     listen 80;
     server_name uploads.cinemata.local;
+ gzip on;
+    access_log /var/log/nginx/upload.cinemata.local.access.log;
+    error_log  /var/log/nginx/upload.cinemata.local.error.log warn;
 
-    gzip on;
-    access_log /var/log/nginx/uploads.cinemata.org.access.log;
-    error_log  /var/log/nginx/uploads.cinemata.org.error.log warn;
+    # Redirect all non-upload requests to main domain
+    location / {
+        return 301 http://cinemata.local$request_uri;
+    }
 
-    # Force HTTPS for all upload requests
-    return 301 https://$server_name$request_uri;
+    # Handle file upload endpoint with dynamic CORS
+    location /fu/ {
+        if ($request_method = 'OPTIONS') {
+            add_header 'Access-Control-Allow-Origin' '*' always;
+            add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS' always;
+            add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,X-CSRFToken';
+            add_header 'Access-Control-Max-Age' 1728000;
+            add_header 'Content-Type' 'text/plain; charset=utf-8';
+            add_header 'Content-Length' 0;
+            return 204;
+        }
+        add_header 'Access-Control-Allow-Origin' '*' always;
+        add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS' always;
+        add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,X-CSRFToken' always;
+        add_header 'Access-Control-Expose-Headers' 'Content-Length,Content-Range' always;
+
+        include /etc/nginx/uwsgi_params;
+        uwsgi_pass 127.0.0.1:9000;
+    }
 }
 
 server {
@@ -97,9 +149,6 @@ server {
     location /fu/ {
 
         proxy_request_buffering off;
-        include /etc/nginx/uwsgi_params;
-        uwsgi_pass 127.0.0.1:9000;
-
         include /etc/nginx/uwsgi_params;
         uwsgi_pass 127.0.0.1:9000;
     }
