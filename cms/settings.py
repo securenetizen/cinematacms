@@ -1,5 +1,7 @@
 import os
+from pathlib import Path
 from celery.schedules import crontab
+from .settings_utils import get_whisper_cpp_paths
 
 # PORTAL SETTINGS
 PORTAL_NAME = "EngageMedia Video"  #  this is shown on several places, eg on contact email, or html title
@@ -109,6 +111,7 @@ TEMPLATES = [
                 "django.template.context_processors.media",
                 "django.contrib.messages.context_processors.messages",
                 "files.context_processors.stuff",
+                'cms.context_processors.ui_settings',
             ],
         },
     },
@@ -317,10 +320,13 @@ REST_FRAMEWORK = {
 }
 
 
-# mediacms related
-
-# valid choices here are 'public', 'private', 'unlisted
-PORTAL_WORKFLOW = "public"
+# cinematacms related
+# Portal workflow options:
+# 'public' - All uploads are public by default
+# 'private' - All uploads are private by default (requires manual approval)
+# 'unlisted' - All uploads are unlisted by default
+# 'private_verified' - Regular users: private, Trusted users: unlisted (RECOMMENDED)
+PORTAL_WORKFLOW = "private_verified"
 
 TEMP_DIRECTORY = "/tmp"  # Don't use a temp directory inside BASE_DIR!!!
 
@@ -500,19 +506,21 @@ TINYMCE_DEFAULT_CONFIG = {
 # whether a featured item appears enlarged with player on index page
 VIDEO_PLAYER_FEATURED_VIDEO_ON_INDEX_PAGE = False
 
+# Video UI/UX settings
+USE_ROUNDED_CORNERS = True  # Default: rounded corners enabled
+
 # allow option to override the default admin url
 DJANGO_ADMIN_URL = "admin/"
+
+WHISPER_CPP_DIR, WHISPER_CPP_COMMAND, WHISPER_CPP_MODEL = get_whisper_cpp_paths()
 from .local_settings import *
 
 
 WHISPER_COMMAND = "/home/cinemata/bin/whisper"
 WHISPER_SIZE = "base"
 
-WHISPER_CPP_COMMAND = "/home/cinemata/whisper.cpp/build/bin/main"
-WHISPER_CPP_MODEL = "/home/cinemata/whisper.cpp/models/ggml-large-v3.bin"
-
-
-ALLOWED_MEDIA_UPLOAD_TYPES = ["video"]
+ALLOWED_HOSTS.append(FRONTEND_HOST.replace("http://", "").replace("https://", ""))
+ALLOWED_MEDIA_UPLOAD_TYPES = ['video']
 
 RECAPTCHA_PRIVATE_KEY = ""
 RECAPTCHA_PUBLIC_KEY = ""
