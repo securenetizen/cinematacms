@@ -1954,16 +1954,16 @@ body.dark_theme .manage-users-item .mi-name>a {
 /* This css file is being used in the TinyMCE editor. */
 
 .page-main-inner .custom-page-wrapper {
-	display: block;
-	margin: 0 auto;
-	/* the 2 rules below is tinymce-only */
-	/* padding-left: 8px !important;
+    display: block;
+    margin: 0 auto;
+    /* the 2 rules below is tinymce-only */
+    /* padding-left: 8px !important;
     padding-right: 8px !important; */
-	padding-top: 32px !important;
-	padding-bottom: 64px !important;
-	width: 1366px;
-	/* width: 1448px; */
-	max-width: 100%;
+    padding-top: 32px !important;
+    padding-bottom: 64px !important;
+    width: 800px;
+    /* width: 1448px; */
+    max-width: 100%;
 }
 
 .in-dark-mode {
