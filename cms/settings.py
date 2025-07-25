@@ -10,6 +10,8 @@ TIME_ZONE = "Europe/London"
 ALLOWED_HOSTS = [
     "127.0.0.1",
     "localhost",
+    "cinemata.org",
+    "www.cinemata.org",
 ]
 INTERNAL_IPS = "127.0.0.1"
 FRONTEND_HOST = "http://cinemata.org"
