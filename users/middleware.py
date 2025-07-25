@@ -15,7 +15,7 @@ class AdminMFAMiddleware:
       if not request.user.is_authenticated:
           return HttpResponseRedirect('/accounts/login/')
       
-      if not request.user.is_superuser:
+      if (not request.user.is_superuser or not request.user.is_manager):
           return HttpResponseRedirect('/')
       
       if not is_mfa_enabled(request.user):

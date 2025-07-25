@@ -40,7 +40,7 @@ class MyAccountAdapter(DefaultAccountAdapter):
         msg.send(fail_silently=True)
 
     def get_login_redirect_url(self, request):
-        if request.user.is_superuser:
+        if (request.user.is_superuser or request.user.is_manager):
             mfa_enabled = is_mfa_enabled(request.user)
             if not mfa_enabled:
                 return resolve_url('/accounts/2fa/totp/activate')
