@@ -478,7 +478,7 @@ VIDEO_PLAYER_FEATURED_VIDEO_ON_INDEX_PAGE = False
 USE_ROUNDED_CORNERS = True  # Default: rounded corners enabled
 
 # allow option to override the default admin url
-DJANGO_ADMIN_URL = "admin/"
+DJANGO_ADMIN_URL = "admin_for_cinemata_xy/"
 
 WHISPER_CPP_DIR, WHISPER_CPP_COMMAND, WHISPER_CPP_MODEL = get_whisper_cpp_paths()
 from .local_settings import *
