@@ -10,8 +10,6 @@ TIME_ZONE = "Europe/London"
 ALLOWED_HOSTS = [
     "127.0.0.1",
     "localhost",
-    "cinemata.org",
-    "www.cinemata.org",
 ]
 INTERNAL_IPS = "127.0.0.1"
 FRONTEND_HOST = "http://cinemata.org"
@@ -142,7 +140,7 @@ LOGGING = {
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": "mediacms_production",
+        "NAME": "mediacms",
         "HOST": "127.0.0.1",
         "PORT": "5432",
         "USER": "mediacms",
@@ -479,6 +477,9 @@ USE_ROUNDED_CORNERS = True  # Default: rounded corners enabled
 
 # allow option to override the default admin url
 DJANGO_ADMIN_URL = "admin_for_cinemata_xy/"
+MFA_REQUIRED_ROLES = ['superuser', 'manager']
+MFA_ENFORCE_ON_PATHS = [f'/{DJANGO_ADMIN_URL}']
+MFA_EXCLUDE_PATHS = ['/fu/', '/api/', '/manage/', '/accounts/']
 
 WHISPER_CPP_DIR, WHISPER_CPP_COMMAND, WHISPER_CPP_MODEL = get_whisper_cpp_paths()
 from .local_settings import *
