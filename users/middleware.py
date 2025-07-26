@@ -7,7 +7,7 @@ class AdminMFAMiddleware:
 
   def __call__(self, request):
     # Only check admin paths, NEVER upload paths
-    if (request.path.startswith('/admin/') and 
+    if (request.path.startswith('/admin_for_cinemata_xy/') and 
       not request.path.startswith('/fu/') and  # Exclude file uploads
       not request.path.startswith('/api/') and   # Exclude API endpoints
 			not request.path.startswith('/manage/')): # Exclude user management endpoints
