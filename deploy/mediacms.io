@@ -36,26 +36,6 @@ server {
     }
 }
 
-# Upload subdomain for file uploads
-server {
-    listen 80;
-    server_name uploads.localhost;
- gzip on;
-    access_log /var/log/nginx/upload.localhost.access.log;
-    error_log  /var/log/nginx/upload.localhost.error.log warn;
-
-    # Redirect all non-upload requests to main domain
-    location / {
-        return 301 http://localhost$request_uri;
-    }
-
-    # Handle file upload endpoint with dynamic CORS
-    location /fu/ {
-
-        include /etc/nginx/uwsgi_params;
-        uwsgi_pass 127.0.0.1:9000;
-    }
-}
 
 server {
     listen 443 ssl;
@@ -93,55 +73,5 @@ server {
 
         include /etc/nginx/uwsgi_params;
         uwsgi_pass 127.0.0.1:9000;
-    }
-}
-
-# Upload subdomain for file uploads (HTTPS)
-server {
-    listen 443 ssl;
-    server_name uploads.localhost;
-
-    ssl_certificate_key  /etc/letsencrypt/live/localhost/privkey.pem;
-    ssl_certificate  /etc/letsencrypt/live/localhost/fullchain.pem;
-    ssl_dhparam /etc/nginx/dhparams/dhparams.pem;
-
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
-    ssl_ecdh_curve secp521r1:secp384r1;
-    ssl_prefer_server_ciphers on;
-
-     # Security headers
-    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
-    add_header X-Content-Type-Options nosniff always;
-    add_header X-Frame-Options DENY always;
-
-    gzip on;
-    access_log /var/log/nginx/uploads.localhost.access.log;
-    error_log  /var/log/nginx/uploads.localhost.error.log warn;
-
-    # Redirect all non-upload requests to main domain
-    location / {
-        return 301 https://localhost$request_uri;
-    }
-
-    # Handle file upload endpoint
-    location /fu/ {
-
-        proxy_request_buffering off;
-        include /etc/nginx/uwsgi_params;
-        uwsgi_pass 127.0.0.1:9000;
-    }
-
-    # Health check endpoint for monitoring
-    location /health {
-        access_log off;
-        return 200 "healthy\n";
-        add_header Content-Type text/plain;
-        add_header 'Access-Control-Allow-Origin' '*' always;
-    }
-
-    # Block all other paths on upload subdomain
-    location ~ ^/(?!fu/|health) {
-        return 301 https://localhost$request_uri;
     }
 }

@@ -239,18 +239,6 @@ var uploader = new qq.FineUploader({
 });
 ```
 
-## Environment Variable Configuration
-
-You can configure the upload subdomain using environment variables:
-
-```bash
-# In your environment or .env file
-UPLOAD_SUBDOMAIN=upload.yourdomain.com
-FRONTEND_HOST=https://yourdomain.com
-```
-
-This simplifies configuration across different environments without hardcoding values.
-
 ## Security Features
 
 ### 🔐 Authentication & Authorization
@@ -322,17 +310,17 @@ certbot certonly --nginx -d upload.cinemata.org
 
 ### 3. Nginx Configuration
 
-Copy and customize the nginx configuration:
+Use the dedicated upload subdomain configuration:
 
 ```bash
-# Copy the configuration
-cp deploy/mediacms.io /etc/nginx/sites-available/cinemata.org
+# Copy the upload subdomain configuration
+sudo cp deploy/upload-subdomain.conf /etc/nginx/sites-available/upload.cinemata.org
 
 # Test configuration
 sudo nginx -t
 
-# Enable the site
-sudo ln -s /etc/nginx/sites-available/cinemata.org /etc/nginx/sites-enabled/
+# Enable the upload subdomain site
+sudo ln -s /etc/nginx/sites-available/upload.cinemata.org /etc/nginx/sites-enabled/
 
 # Reload nginx
 sudo systemctl reload nginx
@@ -361,13 +349,8 @@ CSRF_TRUSTED_ORIGINS.extend([
 
 To use a different upload subdomain:
 
-```bash
-# Option 1: Environment variable (recommended)
-export UPLOAD_SUBDOMAIN="files.yourdomain.com"
-```
 
 ```python
-# Option 2: In Django settings
 UPLOAD_SUBDOMAIN = "files.yourdomain.com"
 ```
 
@@ -460,24 +443,6 @@ CORS_ALLOW_CREDENTIALS = True
 
 # For development, you can use:
 # CORS_ORIGIN_ALLOW_ALL = True
-```
-
-Or modify the UploadCorsMiddleware for custom logic:
-
-```python
-# In UploadCorsMiddleware
-def _add_cors_headers(self, request, response):
-    origin = request.META.get('HTTP_ORIGIN', '')
-
-    # Whitelist specific domains instead of using wildcards
-    allowed_origins = [
-        "https://cinemata.org",
-        "https://www.cinemata.org",
-    ]
-
-    if origin in allowed_origins:
-        response['Access-Control-Allow-Origin'] = origin
-        response['Access-Control-Allow-Credentials'] = 'true'
 ```
 
 ## Development vs Production
