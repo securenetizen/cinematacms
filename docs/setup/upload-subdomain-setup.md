@@ -7,141 +7,317 @@ This document explains how the upload subdomain (`upload.cinemata.org`) is confi
 The upload subdomain has been configured to:
 - Handle all file upload operations through the `/fu/` endpoint
 - Redirect all other requests to the main domain
-- Support both HTTP and HTTPS
-- Allow large file uploads up to 800MB
+- Support both HTTP and HTTPS with forced HTTPS in production
+- Allow large file uploads up to 800MB (configurable)
+- Implement CORS and CSRF protection for secure cross-domain uploads
 
 ## Configuration Components
 
-The upload subdomain is now fully configurable through Django settings, eliminating hardcoded values.
+The upload subdomain is fully configurable through Django settings, eliminating hardcoded values.
 
 ### 1. Nginx Configuration
 
-The nginx configuration (`deploy/mediacms.io`) includes two server blocks for the upload subdomain:
+The nginx configuration includes server blocks for the upload subdomain with security measures:
 
-#### HTTP (Port 80)
+#### HTTP (Port 80) - Force HTTPS
 ```nginx
 server {
     listen 80;
     server_name upload.cinemata.org;
 
+    # Force HTTPS for all requests
+    return 301 https://$server_name$request_uri;
+}
+```
+
+#### HTTPS (Port 443) - Main Configuration
+```nginx
+server {
+    listen 443 ssl http2;
+    server_name upload.cinemata.org;
+
+    # SSL Configuration
+    ssl_certificate /etc/letsencrypt/live/upload.cinemata.org/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/upload.cinemata.org/privkey.pem;
+    ssl_dhparam /etc/nginx/dhparams/dhparams.pem;
+
+    # Modern SSL Configuration
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
+    ssl_prefer_server_ciphers on;
+
+    # Security Headers
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Content-Type-Options nosniff always;
+    add_header X-Frame-Options DENY always;
+
+    # Upload-specific optimizations
+    client_max_body_size 800M;
+    proxy_request_buffering off;
+    proxy_buffering off;
+
     # Redirect all non-upload requests to main domain
     location / {
-        return 301 http://cinemata.org$request_uri;
+        return 301 https://cinemata.org$request_uri;
     }
 
-    # Handle file upload endpoint
+    # File upload endpoint - CORS handled by Django middleware
     location /fu/ {
-        add_header 'Access-Control-Allow-Origin' '*';
-        add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS';
-        add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,X-CSRFToken';
-        add_header 'Access-Control-Expose-Headers' 'Content-Length,Content-Range';
-
-        client_max_body_size 800M;
-
-        include /etc/nginx/sites-enabled/uwsgi_params;
+        # Pass to Django application
+        include /etc/nginx/uwsgi_params;
         uwsgi_pass 127.0.0.1:9000;
+    }
+
+    # Health check endpoint for monitoring
+    location /health {
+        access_log off;
+        return 200 "healthy\n";
+        add_header Content-Type text/plain;
+    }
+
+    # Block all other paths on upload subdomain
+    location ~ ^/(?!fu/|health) {
+        return 301 https://cinemata.org$request_uri;
     }
 }
 ```
 
-#### HTTPS (Port 443)
-Similar configuration with SSL settings enabled.
-
 ### 2. Django Settings
 
-The Django settings have been updated to include a configurable upload subdomain:
+The Django settings include security configurations for cross-domain uploads:
 
 #### Upload Subdomain Configuration
 ```python
 # Upload subdomain configuration
-UPLOAD_SUBDOMAIN = "upload.cinemata.org"
+UPLOAD_SUBDOMAIN = os.getenv('UPLOAD_SUBDOMAIN', 'uploads.cinemata.org')
+
+# Domain Configuration
+MAIN_DOMAINS = [
+    "https://cinemata.org",
+    "https://www.cinemata.org",
+]
+UPLOAD_DOMAINS = [
+    "https://uploads.cinemata.org",
+]
+
+# Dynamic Host Configuration
+ALLOWED_HOSTS = [
+    "127.0.0.1",
+    "localhost",
+    *[url.replace("https://", "").replace("http://", "") for url in MAIN_DOMAINS + UPLOAD_DOMAINS]
+]
+
+# CSRF Trusted Origins for cross-domain uploads
+CSRF_TRUSTED_ORIGINS = MAIN_DOMAINS + UPLOAD_DOMAINS
+
+# Cookie Settings for Cross-Domain Support
+SESSION_COOKIE_DOMAIN = ".cinemata.org"
+CSRF_COOKIE_DOMAIN = ".cinemata.org"
+SESSION_COOKIE_SAMESITE = 'None'
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SAMESITE = 'None'
+CSRF_COOKIE_SECURE = True
 ```
 
-#### Dynamic Host Configuration
-The system automatically adds the upload subdomain to `ALLOWED_HOSTS` and `CSRF_TRUSTED_ORIGINS`:
+#### Security Middleware Configuration
+```python
+MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",  # Django CORS Headers middleware
+    "uploader.middleware.UploadCorsMiddleware",  # Custom CORS middleware for upload endpoints
+    "django.middleware.security.SecurityMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "debug_toolbar.middleware.DebugToolbarMiddleware",
+    "allauth.account.middleware.AccountMiddleware",
+    "users.middleware.AdminMFAMiddleware",
+]
+```
+
+### 3. CORS Configuration
+
+The system uses a dual CORS approach combining Django CORS Headers and custom middleware:
+
+#### Django CORS Headers Configuration
+```python
+# CORS configuration in settings.py
+CORS_ALLOWED_ORIGINS = [
+    *MAIN_DOMAINS,
+    *UPLOAD_DOMAINS
+    # Add other allowed origins
+]
+CORS_ALLOW_CREDENTIALS = True
+
+# Development fallback (in local_settings.py)
+CORS_ORIGIN_ALLOW_ALL = True
+```
+
+#### Custom UploadCorsMiddleware
+The system also uses a custom `UploadCorsMiddleware` for upload-specific CORS handling:
 
 ```python
-# Dynamic host configuration
-main_domain = FRONTEND_HOST.replace("http://", "").replace("https://", "")
-ALLOWED_HOSTS.extend([main_domain, UPLOAD_SUBDOMAIN])
+class UploadCorsMiddleware(MiddlewareMixin):
+    """
+    Custom CORS middleware for upload endpoints that supports credentials.
 
-# Dynamic CSRF trusted origins
-CSRF_TRUSTED_ORIGINS.extend([
-    f"http://{main_domain}",
-    f"https://{main_domain}",
-    f"http://{UPLOAD_SUBDOMAIN}",
-    f"https://{UPLOAD_SUBDOMAIN}",
-])
+    Features:
+    - Handles OPTIONS preflight requests
+    - Sets appropriate CORS headers for upload endpoints
+    - Supports multiple allowed origins with credentials
+    - Only applies to upload-related URLs (/fu/ paths)
+    """
+
+    def _add_cors_headers(self, request, response):
+        """Add CORS headers to response"""
+        origin = request.META.get('HTTP_ORIGIN', '')
+
+        # Get allowed origins from settings
+        main_domains = getattr(settings, 'MAIN_DOMAINS', [])
+        upload_domains = getattr(settings, 'UPLOAD_DOMAINS', [])
+        allowed_origins = main_domains + upload_domains
+
+        # Check if origin is allowed
+        if origin in allowed_origins:
+            response['Access-Control-Allow-Origin'] = origin
+            response['Access-Control-Allow-Credentials'] = 'true'
+        else:
+            # Fallback for development - allow localhost variations
+            if any(domain in origin for domain in ['localhost', '127.0.0.1']) and settings.DEBUG:
+                response['Access-Control-Allow-Origin'] = origin
+                response['Access-Control-Allow-Credentials'] = 'true'
+
+        # Set other CORS headers
+        response['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+        response['Access-Control-Allow-Headers'] = (
+            'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,'
+            'Content-Type,Range,X-CSRFToken,Authorization'
+        )
+        response['Access-Control-Expose-Headers'] = 'Content-Length,Content-Range'
+
+        return response
 ```
 
-### 3. Frontend Configuration
+### 4. Frontend Configuration
 
-The frontend FineUploader configuration uses dynamic template variables instead of hardcoded URLs:
+The frontend FineUploader configuration includes security features:
 
 ```javascript
-request: {
-    endpoint: '<%= UPLOAD_HOST %>/fu/upload/',
-    customHeaders: {
-        'X-CSRFToken': getCSRFToken('csrftoken')
-    }
-},
-// ...
-chunking: {
-    // ...
-    success: {
-        endpoint: '<%= UPLOAD_HOST %>/fu/upload/?done'
-    }
-}
+var uploader = new qq.FineUploader({
+    debug: false,
+    element: document.querySelector('.media-uploader'),
+    request: {
+        endpoint: '{{UPLOAD_HOST}}{% url "uploader:upload" %}',
+        customHeaders: {
+            'X-CSRFToken': getCSRFToken('csrftoken')  // CSRF token from cookie
+        },
+        withCredentials: true  // Send cookies with cross-origin requests
+    },
+    validation: {
+        itemLimit: {{UPLOAD_MAX_FILES_NUMBER}},
+        sizeLimit: {{UPLOAD_MAX_SIZE}},
+    },
+    cors: {
+        expected: true,  // Enable CORS support
+        sendCredentials: true  // Send credentials for CORS requests
+    },
+    chunking: {
+        enabled: true,  // Enable chunked uploads for large files
+        concurrent: {
+            enabled: true  // Enable concurrent chunk uploads
+        },
+        success: {
+            endpoint: '{{UPLOAD_HOST}}{% url "uploader:upload" %}?done',
+        },
+    },
+    retry: {
+        enableAuto: true,
+        maxAutoAttempts: 2,
+    },
+});
 ```
-
-The `UPLOAD_HOST` variable is automatically generated based on the request protocol (HTTP/HTTPS) and the `UPLOAD_SUBDOMAIN` setting.
 
 ## Environment Variable Configuration
 
-You can configure the upload subdomain using the `UPLOAD_SUBDOMAIN` environment variable:
+You can configure the upload subdomain using environment variables:
 
 ```bash
 # In your environment or .env file
 UPLOAD_SUBDOMAIN=upload.yourdomain.com
+FRONTEND_HOST=https://yourdomain.com
 ```
 
-This simplifies configuration across different environments without hardcoding values in settings files.
+This simplifies configuration across different environments without hardcoding values.
 
-## Customization
+## Security Features
 
-### Changing the Upload Subdomain
+### 🔐 Authentication & Authorization
 
-To use a different upload subdomain, you can either set an environment variable or update the Django configuration:
+1. **User Permission Validation**
+   ```python
+   def user_allowed_to_upload(request):
+       if request.user.is_anonymous:
+           return False
+       if request.user.is_superuser:
+           return True
 
-```bash
-# Option 1: Environment variable (recommended)
-export UPLOAD_SUBDOMAIN="files.yourdomain.com"
-```
+       # Check user permissions based on settings
+       if settings.CAN_ADD_MEDIA == "all":
+           return True
+       elif settings.CAN_ADD_MEDIA == "email_verified":
+           return request.user.email_is_verified
+       elif settings.CAN_ADD_MEDIA == "advancedUser":
+           return request.user.advancedUser
 
-```python
-# Option 2: In cms/settings.py or cms/local_settings.py
-UPLOAD_SUBDOMAIN = "files.yourdomain.com"  # Custom subdomain
-```
+       return False
+   ```
 
-The system will automatically:
-- Add the new subdomain to `ALLOWED_HOSTS`
-- Configure CSRF trusted origins
-- Generate the correct frontend URLs
+2. **CSRF Protection**
+   - All upload requests require valid CSRF tokens
+   - Tokens are validated from both headers and cookies
+   - Cross-origin requests are properly handled
 
-### Environment-Specific Configuration
+3. **Session Security**
+   - Secure cookie settings for cross-domain authentication
+   - Session timeout configuration
+   - SameSite cookie policies
 
-You can configure different subdomains for different environments using environment variables:
+### 🛡️ File Upload Security
 
-```bash
-# Development
-UPLOAD_SUBDOMAIN="upload-dev.cinemata.org"
+1. **File Validation**
+   - File type restrictions
+   - File size limits (configurable)
+   - Filename sanitization
+   - UUID validation for chunked uploads
 
-# Staging
-UPLOAD_SUBDOMAIN="upload-staging.cinemata.org"
+2. **Upload Limits**
+   ```python
+   # Upload configuration
+   UPLOAD_MAX_SIZE = 800 * 1024 * 1000 * 5  # ~3.9 GB
+   UPLOAD_MAX_FILES_NUMBER = 100
+   CONCURRENT_UPLOADS = True
+   ```
 
-# Production
-UPLOAD_SUBDOMAIN="upload.cinemata.org"
-```
+3. **Chunked Upload Security**
+   - Individual chunk validation
+   - Integrity checks during combination
+   - Temporary file cleanup
+
+### 🌐 Network Security
+
+1. **HTTPS Enforcement**
+   - All production traffic forced to HTTPS
+   - HSTS headers for browser enforcement
+   - Modern SSL/TLS configuration
+
+2. **CORS Configuration**
+   - Dual CORS approach: Django CORS Headers + Custom UploadCorsMiddleware
+   - Whitelist-based origin control using `CORS_ALLOWED_ORIGINS`
+   - Credentials support for authenticated uploads (`CORS_ALLOW_CREDENTIALS = True`)
+   - Development fallback with `CORS_ORIGIN_ALLOW_ALL = True`
+   - Proper preflight request handling
 
 ## Setup Instructions
 
@@ -158,63 +334,235 @@ Or for local development, add to your `/etc/hosts` file:
 127.0.0.1    upload.cinemata.org
 ```
 
-### 2. SSL Certificate (for HTTPS)
+### 2. SSL Certificate (Required for Production)
 
-If using SSL, ensure your certificate covers the upload subdomain. For Let's Encrypt:
+Ensure your certificate covers the upload subdomain. For Let's Encrypt:
 
 ```bash
+# Get certificate for both main domain and upload subdomain
 certbot certonly --nginx -d cinemata.org -d upload.cinemata.org
+
+# Or use separate certificates
+certbot certonly --nginx -d upload.cinemata.org
 ```
 
-### 3. Nginx Reload
+### 3. Nginx Configuration
 
-After configuration changes, reload nginx:
+Copy and customize the nginx configuration:
 
 ```bash
+# Copy the configuration
+cp deploy/mediacms.io /etc/nginx/sites-available/cinemata.org
+
+# Test configuration
 sudo nginx -t
+
+# Enable the site
+sudo ln -s /etc/nginx/sites-available/cinemata.org /etc/nginx/sites-enabled/
+
+# Reload nginx
 sudo systemctl reload nginx
+```
+
+### 4. Django Settings
+
+Update your Django settings to include the upload subdomain configuration:
+
+```python
+# In cms/local_settings.py or cms/settings.py
+UPLOAD_SUBDOMAIN = os.getenv('UPLOAD_SUBDOMAIN', 'uploads.cinemata.org')
+
+# Add to ALLOWED_HOSTS
+ALLOWED_HOSTS.extend([UPLOAD_SUBDOMAIN])
+
+# Add to CSRF_TRUSTED_ORIGINS
+CSRF_TRUSTED_ORIGINS.extend([
+    f"https://{UPLOAD_SUBDOMAIN}",
+])
+```
+
+## Customization
+
+### Changing the Upload Subdomain
+
+To use a different upload subdomain:
+
+```bash
+# Option 1: Environment variable (recommended)
+export UPLOAD_SUBDOMAIN="files.yourdomain.com"
+```
+
+```python
+# Option 2: In Django settings
+UPLOAD_SUBDOMAIN = "files.yourdomain.com"
+```
+
+The system will automatically:
+- Add the new subdomain to `ALLOWED_HOSTS`
+- Configure CSRF trusted origins
+- Generate the correct frontend URLs
+
+### Environment-Specific Configuration
+
+Configure different subdomains for different environments:
+
+```bash
+# Development
+UPLOAD_SUBDOMAIN="upload-dev.cinemata.org"
+
+# Staging
+UPLOAD_SUBDOMAIN="upload-staging.cinemata.org"
+
+# Production
+UPLOAD_SUBDOMAIN="upload.cinemata.org"
+```
+
+## Monitoring & Logging
+
+### Upload-Specific Logging
+
+```nginx
+# Separate log files for upload subdomain
+access_log /var/log/nginx/upload.cinemata.org.access.log;
+error_log  /var/log/nginx/upload.cinemata.org.error.log warn;
+```
+
+### Health Monitoring
+
+The upload subdomain includes a health check endpoint:
+
+```nginx
+location /health {
+    access_log off;
+    return 200 "healthy\n";
+    add_header Content-Type text/plain;
+}
+```
+
+## Troubleshooting
+
+### CSRF Token Issues
+
+If you encounter CSRF token errors:
+
+1. **Check CSRF Trusted Origins**
+   ```python
+   # Ensure both domains are included
+   CSRF_TRUSTED_ORIGINS = [
+       "https://cinemata.org",
+       "https://upload.cinemata.org",
+   ]
+   ```
+
+2. **Verify Frontend Token Transmission**
+   ```javascript
+   // Ensure CSRF token is being sent
+   customHeaders: {
+       'X-CSRFToken': getCSRFToken('csrftoken')
+   }
+   ```
+
+3. **Check Cookie Settings**
+   ```python
+   # Ensure cookies are properly configured
+   CSRF_COOKIE_DOMAIN = ".cinemata.org"
+   CSRF_COOKIE_SECURE = True
+   ```
+
+### Upload Size Limits
+
+Adjust upload limits based on your needs:
+
+```nginx
+# Nginx configuration
+client_max_body_size 2G;  # For 2GB uploads
+```
+
+```python
+# Django settings
+UPLOAD_MAX_SIZE = 2 * 1024 * 1024 * 1024  # 2GB in bytes
+```
+
+### CORS Issues
+
+If you need more restrictive CORS policies:
+
+```python
+# In settings.py - Configure allowed origins
+CORS_ALLOWED_ORIGINS = [
+    "https://cinemata.org",
+    "https://www.cinemata.org",
+    "https://upload.cinemata.org",
+]
+
+# Ensure credentials are allowed
+CORS_ALLOW_CREDENTIALS = True
+
+# For development, you can use:
+# CORS_ORIGIN_ALLOW_ALL = True
+```
+
+Or modify the UploadCorsMiddleware for custom logic:
+
+```python
+# In UploadCorsMiddleware
+def _add_cors_headers(self, request, response):
+    origin = request.META.get('HTTP_ORIGIN', '')
+
+    # Whitelist specific domains instead of using wildcards
+    allowed_origins = [
+        "https://cinemata.org",
+        "https://www.cinemata.org",
+    ]
+
+    if origin in allowed_origins:
+        response['Access-Control-Allow-Origin'] = origin
+        response['Access-Control-Allow-Credentials'] = 'true'
+```
+
+## Development vs Production
+
+### Development Environment
+
+```python
+# Development settings
+DEBUG = True
+UPLOAD_SUBDOMAIN = "localhost:8000"
+SESSION_COOKIE_SECURE = False
+CSRF_COOKIE_SECURE = False
+```
+
+### Production Environment
+
+```python
+# Production settings
+DEBUG = False
+UPLOAD_SUBDOMAIN = "upload.cinemata.org"
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+SECURE_SSL_REDIRECT = True
+SECURE_HSTS_SECONDS = 31536000
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 ```
 
 ## Benefits
 
 1. **Separation of Concerns**: Upload operations are isolated from the main site
 2. **Performance**: Upload-specific optimizations without affecting the main site
-3. **Security**: Better control over upload-specific security settings
+3. **Security**: CORS and CSRF protection for secure file uploads
 4. **Scalability**: Can be scaled independently or moved to a different server
-5. **Monitoring**: Separate logging for upload operations
+5. **Monitoring**: Separate logging and health monitoring for upload operations
 
 ## URL Structure
 
-- Main site: `http://cinemata.org/` or `https://cinemata.org/`
-- Upload endpoint: `http://upload.cinemata.org/fu/upload/` or `https://upload.cinemata.org/fu/upload/`
+- Main site: `https://cinemata.org/`
+- Upload endpoint: `https://upload.cinemata.org/fu/upload/`
+- Health check: `https://upload.cinemata.org/health`
 - All other URLs on upload subdomain redirect to main domain
 
-## Troubleshooting
+## Additional Security Resources
 
-### CSRF Token Issues
-If you encounter CSRF token errors, ensure:
-1. `CSRF_TRUSTED_ORIGINS` includes both domains
-2. The frontend is correctly passing the CSRF token in headers
-3. Both domains are serving from the same Django instance
-
-### Upload Size Limits
-The nginx configuration sets `client_max_body_size 800M`. Adjust this value based on your needs:
-
-```nginx
-client_max_body_size 2G;  # For 2GB uploads
-```
-
-### CORS Issues
-The nginx configuration includes CORS headers. If you need more restrictive CORS policies, modify the `Access-Control-Allow-Origin` header to specify allowed domains instead of using `*`.
-
-## Development vs Production
-
-### Development
-- Uses `upload.cinemata.org` for local testing
-- May use HTTP for simplicity
-- DNS typically handled via `/etc/hosts`
-
-### Production
-- Should use proper DNS records
-- Must use HTTPS for security
-- Consider using a CDN or dedicated upload server for better performance
+- [Django Security Documentation](https://docs.djangoproject.com/en/stable/topics/security/)
+- [OWASP File Upload Security](https://owasp.org/www-community/vulnerabilities/Unrestricted_File_Upload)
+- [Nginx Security Headers](https://nginx.org/en/docs/http/ngx_http_headers_module.html)
+- [CORS Security Best Practices](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS)

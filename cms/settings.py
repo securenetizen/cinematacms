@@ -42,6 +42,15 @@ SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SAMESITE = 'None'
 CSRF_COOKIE_SECURE = True
 
+
+# Cors section
+CORS_ALLOWED_ORIGINS = [
+    *MAIN_DOMAINS,
+    *UPLOAD_DOMAINS
+    # Add other allowed origins
+]
+CORS_ALLOW_CREDENTIALS = True
+
 INTERNAL_IPS = "127.0.0.1"
 FRONTEND_HOST = "http://cinemata.org"
 SSL_FRONTEND_HOST = FRONTEND_HOST.replace("http", "https")
@@ -81,9 +90,11 @@ INSTALLED_APPS = [
     "djcelery_email",
     "tinymce",
     "captcha",
+    "corsheaders",
 ]
 
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
     "uploader.middleware.UploadCorsMiddleware",  # Custom CORS middleware for upload endpoints
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
