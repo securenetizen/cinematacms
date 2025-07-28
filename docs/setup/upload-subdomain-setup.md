@@ -8,7 +8,7 @@ The upload subdomain has been configured to:
 - Handle all file upload operations through the `/fu/` endpoint
 - Redirect all other requests to the main domain
 - Support both HTTP and HTTPS with forced HTTPS in production
-- Allow large file uploads up to 800MB (configurable)
+- Allow large file uploads
 - Implement CORS and CSRF protection for secure cross-domain uploads
 
 ## Configuration Components
@@ -284,35 +284,9 @@ This simplifies configuration across different environments without hardcoding v
    - Session timeout configuration
    - SameSite cookie policies
 
-### 🛡️ File Upload Security
-
-1. **File Validation**
-   - File type restrictions
-   - File size limits (configurable)
-   - Filename sanitization
-   - UUID validation for chunked uploads
-
-2. **Upload Limits**
-   ```python
-   # Upload configuration
-   UPLOAD_MAX_SIZE = 800 * 1024 * 1000 * 5  # ~3.9 GB
-   UPLOAD_MAX_FILES_NUMBER = 100
-   CONCURRENT_UPLOADS = True
-   ```
-
-3. **Chunked Upload Security**
-   - Individual chunk validation
-   - Integrity checks during combination
-   - Temporary file cleanup
-
 ### 🌐 Network Security
 
-1. **HTTPS Enforcement**
-   - All production traffic forced to HTTPS
-   - HSTS headers for browser enforcement
-   - Modern SSL/TLS configuration
-
-2. **CORS Configuration**
+1. **CORS Configuration**
    - Dual CORS approach: Django CORS Headers + Custom UploadCorsMiddleware
    - Whitelist-based origin control using `CORS_ALLOWED_ORIGINS`
    - Credentials support for authenticated uploads (`CORS_ALLOW_CREDENTIALS = True`)
@@ -402,20 +376,6 @@ The system will automatically:
 - Configure CSRF trusted origins
 - Generate the correct frontend URLs
 
-### Environment-Specific Configuration
-
-Configure different subdomains for different environments:
-
-```bash
-# Development
-UPLOAD_SUBDOMAIN="upload-dev.cinemata.org"
-
-# Staging
-UPLOAD_SUBDOMAIN="upload-staging.cinemata.org"
-
-# Production
-UPLOAD_SUBDOMAIN="upload.cinemata.org"
-```
 
 ## Monitoring & Logging
 
@@ -540,9 +500,6 @@ DEBUG = False
 UPLOAD_SUBDOMAIN = "upload.cinemata.org"
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
-SECURE_SSL_REDIRECT = True
-SECURE_HSTS_SECONDS = 31536000
-SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 ```
 
 ## Benefits
