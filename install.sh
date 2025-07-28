@@ -40,12 +40,10 @@ rm -rf tmp ffmpeg-release-amd64-static.tar.xz
 echo "ffmpeg installed to /usr/local/bin"
 
 read -p "Enter portal URL, or press enter for localhost : " FRONTEND_HOST
-read -p "Enter upload subdomain URL, or press enter for upload.localhost : " UPLOAD_SUBDOMAIN
 read -p "Enter portal name, or press enter for 'CinemataCMS : " PORTAL_NAME
 
 [ -z "$PORTAL_NAME" ] && PORTAL_NAME='CinemataCMS'
 [ -z "$FRONTEND_HOST" ] && FRONTEND_HOST='localhost'
-[ -z "$UPLOAD_SUBDOMAIN" ] && UPLOAD_SUBDOMAIN='upload.localhost'
 
 echo 'Creating database to be used in CinemataCMS'
 
@@ -71,17 +69,12 @@ SECRET_KEY=`python -c 'from django.core.management.utils import get_random_secre
 # remove http or https prefix
 FRONTEND_HOST=`echo "$FRONTEND_HOST" | sed -r 's/http:\/\///g'`
 FRONTEND_HOST=`echo "$FRONTEND_HOST" | sed -r 's/https:\/\///g'`
-UPLOAD_SUBDOMAIN=`echo "$UPLOAD_SUBDOMAIN" | sed -r 's/http:\/\///g'`
-UPLOAD_SUBDOMAIN=`echo "$UPLOAD_SUBDOMAIN" | sed -r 's/https:\/\///g'`
 
-# Update nginx configuration to replace both main domain and upload subdomain
-sed -i "s/cinemata\.local/$FRONTEND_HOST/g" deploy/mediacms.io
-sed -i "s/upload\.cinemata\.local/$UPLOAD_SUBDOMAIN/g" deploy/mediacms.io
+sed -i s/localhost/$FRONTEND_HOST/g deploy/mediacms.io
 
 FRONTEND_HOST_HTTP_PREFIX='http://'$FRONTEND_HOST
 
 echo 'FRONTEND_HOST='\'"$FRONTEND_HOST_HTTP_PREFIX"\' >> cms/local_settings.py
-echo 'UPLOAD_SUBDOMAIN='\'"$UPLOAD_SUBDOMAIN"\' >> cms/local_settings.py
 echo 'PORTAL_NAME='\'"$PORTAL_NAME"\' >> cms/local_settings.py
 echo "SSL_FRONTEND_HOST = FRONTEND_HOST.replace('http', 'https')" >> cms/local_settings.py
 
@@ -123,7 +116,7 @@ cp deploy/mediacms.io_privkey.pem /etc/letsencrypt/live/$FRONTEND_HOST/privkey.p
 cp deploy/dhparams.pem /etc/nginx/dhparams/dhparams.pem
 cp deploy/mediacms.io /etc/nginx/sites-available/mediacms.io
 ln -s /etc/nginx/sites-available/mediacms.io /etc/nginx/sites-enabled/mediacms.io
-cp deploy/uwsgi_params /etc/nginx/uwsgi_params
+cp deploy/uwsgi_params /etc/nginx/sites-enabled/uwsgi_params
 cp deploy/nginx.conf /etc/nginx/
 systemctl stop nginx
 systemctl start nginx
@@ -131,12 +124,11 @@ systemctl start nginx
 # attempt to get a valid certificate for specified domain
 
 if [ "$FRONTEND_HOST" != "localhost" ]; then
-    echo 'attempt to get a valid certificate for specified url $FRONTEND_HOST and $UPLOAD_SUBDOMAIN'
-    # Get certificate for both main domain and upload subdomain
-    if ! certbot --nginx -n --agree-tos --register-unsafely-without-email -d $FRONTEND_HOST -d $UPLOAD_SUBDOMAIN; then
-        echo "First certbot attempt failed, trying again..."
-        certbot --nginx -n --agree-tos --register-unsafely-without-email -d $FRONTEND_HOST -d $UPLOAD_SUBDOMAIN
-    fi
+    echo 'attempt to get a valid certificate for specified url $FRONTEND_HOST'
+    certbot --nginx -n --agree-tos --register-unsafely-without-email -d $FRONTEND_HOST
+    certbot --nginx -n --agree-tos --register-unsafely-without-email -d $FRONTEND_HOST
+    # unfortunately for some reason it needs to be run two times in order to create the entries
+    # and directory structure!!!
     systemctl restart nginx
 else
     echo "will not call certbot utility to update ssl certificate for url 'localhost', using default ssl certificate"
