@@ -7,15 +7,56 @@ from .settings_utils import get_whisper_cpp_paths
 PORTAL_NAME = "EngageMedia Video"  #  this is shown on several places, eg on contact email, or html title
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "Europe/London"
+
+# Domain Configuration
+MAIN_DOMAINS = [
+    "https://dev.cinemata.org",
+    "https://cinemata.org",
+    "https://www.cinemata.org",
+    "https://stage.cinemata.org",
+]
+UPLOAD_DOMAINS = [
+    "https://dev-uploads.cinemata.org",
+    "https://uploads.cinemata.org",
+    "https://stage-uploads.cinemata.org",
+]
+ALL_DOMAINS_HOSTNAMES = [
+    url.replace("https://", "").replace("http://", "") for url in MAIN_DOMAINS + UPLOAD_DOMAINS
+]
+
 ALLOWED_HOSTS = [
     "127.0.0.1",
     "localhost",
-    "cinemata.org",
-    "www.cinemata.org",
+    *ALL_DOMAINS_HOSTNAMES,
 ]
+
+# CSRF Trusted Origins for upload subdomain
+CSRF_TRUSTED_ORIGINS = MAIN_DOMAINS + UPLOAD_DOMAINS
+
+# Cookie Settings for Cross-Domain Support
+# NOTE: For production, set these to your parent domain, e.g., ".yourdomain.org"
+SESSION_COOKIE_DOMAIN = ".cinemata.org"
+CSRF_COOKIE_DOMAIN = ".cinemata.org"
+SESSION_COOKIE_SAMESITE = 'None'
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SAMESITE = 'None'
+CSRF_COOKIE_SECURE = True
+
+
+# Cors section
+CORS_ALLOWED_ORIGINS = [
+    *MAIN_DOMAINS,
+    *UPLOAD_DOMAINS
+    # Add other allowed origins
+]
+CORS_ALLOW_CREDENTIALS = True
+
 INTERNAL_IPS = "127.0.0.1"
 FRONTEND_HOST = "http://cinemata.org"
 SSL_FRONTEND_HOST = FRONTEND_HOST.replace("http", "https")
+
+# Upload subdomain configuration
+UPLOAD_SUBDOMAIN = os.getenv('UPLOAD_SUBDOMAIN', 'uploads.cinemata.org')
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -49,9 +90,12 @@ INSTALLED_APPS = [
     "djcelery_email",
     "tinymce",
     "captcha",
+    "corsheaders",
 ]
 
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
+    "uploader.middleware.UploadCorsMiddleware",  # Custom CORS middleware for upload endpoints
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -482,9 +526,12 @@ DJANGO_ADMIN_URL = "admin_for_cinemata_xy/"
 
 WHISPER_CPP_DIR, WHISPER_CPP_COMMAND, WHISPER_CPP_MODEL = get_whisper_cpp_paths()
 from .local_settings import *
-ALLOWED_HOSTS.append(FRONTEND_HOST.replace("http://", "").replace("https://", ""))
+
+
+WHISPER_COMMAND = "/home/cinemata/bin/whisper"
 WHISPER_SIZE = "base"
 
+ALLOWED_HOSTS.append(FRONTEND_HOST.replace("http://", "").replace("https://", ""))
 ALLOWED_MEDIA_UPLOAD_TYPES = ['video']
 
 RECAPTCHA_PRIVATE_KEY = ""
