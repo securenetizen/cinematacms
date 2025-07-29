@@ -6,9 +6,9 @@ services:
       - postgres_data:/var/lib/postgresql/data/
 
     environment:
-      POSTGRES_USER: cinematacms
-      POSTGRES_PASSWORD: cinematacms
-      POSTGRES_DB: cinematacms
+      POSTGRES_USER: mediacms
+      POSTGRES_PASSWORD: mediacms
+      POSTGRES_DB: mediacms
       TZ: Europe/London
     ports:
       - "5432:5432"
@@ -26,6 +26,48 @@ services:
     networks:
       - cinemata_network
 
+  # celery_worker:
+  #   image: cinemata/cinematacms-dev:latest
+  #   build:
+  #     context: .
+  #     dockerfile: ./Dockerfile.dev
+  #   deploy:
+  #     replicas: 1
+  #   command: celery -A cms worker -l info
+  #   volumes:
+  #     - ./:/app/
+  #   environment:
+  #     DEVELOPMENT_MODE: True
+  #     DJANGO_SETTINGS_MODULE: cms.settings
+  #     DATABASE_URL: postgres://cinemata:cinemata@db:5432/cinemata
+  #     REDIS_URL: redis://redis:6379/0
+  #     DEBUG: True
+  #   depends_on:
+  #     redis:
+  #       condition: service_healthy
+  #     db:
+  #       condition: service_healthy
+  #   networks:
+  #     - cinemata_network
+
+  # celery_beat:
+  #   image: cinemata/cinematacms-dev:latest
+  #   build:
+  #     context: .
+  #     dockerfile: ./Dockerfile.dev
+  #   command: celery -A cms beat -l info
+  #   volumes:
+  #     - ./:/app/
+  #   environment:
+  #     DEVELOPMENT_MODE: True
+  #     DJANGO_SETTINGS_MODULE: cms.settings
+  #     DATABASE_URL: postgres://cinemata:cinemata@db:5432/cinemata
+  #     REDIS_URL: redis://redis:6379/0
+  #     DEBUG: True
+  #   depends_on:
+  #     - celery_worker
+  #   networks:
+  #     - cinemata_network
 
 volumes:
   postgres_data:

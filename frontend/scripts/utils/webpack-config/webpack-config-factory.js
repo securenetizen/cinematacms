@@ -23,14 +23,11 @@ const webpackConfigFactory = (env, inputConfig) => {
 		};
 	}
 
-	const isDebug = "testing" === env;
-	// const isDebug = true;
-
 	return {
 		mode: "production",
-		devtool: isDebug ? "source-map" : false,
+		devtool: "testing" === env ? "source-map" : false,
 		optimization: {
-			minimize: !isDebug,
+			minimize: "testing" !== env,
 			runtimeChunk: false,
 			splitChunks: {
 				chunks: "all",

@@ -582,7 +582,6 @@ export default class VideoViewer extends React.PureComponent {
 										onClickPreviousCallback={this.onClickPrevious}
 										onStateUpdateCallback={this.onStateUpdate}
 										onPlayerInitCallback={this.onPlayerInit}
-										debug={false}
 									/>
 								)}
 							</SiteConsumer>

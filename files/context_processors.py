@@ -3,7 +3,7 @@ from django.conf import settings
 from .methods import can_upload_media, is_mediacms_editor, is_mediacms_manager
 from .models import HomepagePopup, TopMessage
 
-# NOTE: context_processors.py can be considered as a dumping ground of sorts for
+# NOTE: context_processors.py can be considered as a dumping ground of sorts for 
 # multiple variables that, as declared, are then instantiated to be referenced
 # as one of multiple contexts in the settings.py's context_processors attribute.
 # for frontend developers, think of this is a way to globally declare variables
@@ -13,10 +13,8 @@ def stuff(request):
     ret = {}
     if request.is_secure():
         ret["FRONTEND_HOST"] = settings.SSL_FRONTEND_HOST
-        ret["UPLOAD_HOST"] = f"https://{settings.UPLOAD_SUBDOMAIN}"
     else:
         ret["FRONTEND_HOST"] = settings.FRONTEND_HOST
-        ret["UPLOAD_HOST"] = f"http://{settings.UPLOAD_SUBDOMAIN}"
     ret["PORTAL_NAME"] = settings.PORTAL_NAME
     ret["LOAD_FROM_CDN"] = settings.LOAD_FROM_CDN
     ret["CAN_LOGIN"] = settings.LOGIN_ALLOWED
