@@ -10,15 +10,11 @@ TIME_ZONE = "Europe/London"
 
 # Domain Configuration
 MAIN_DOMAINS = [
-    "https://dev.cinemata.org",
     "https://cinemata.org",
     "https://www.cinemata.org",
-    "https://stage.cinemata.org",
 ]
 UPLOAD_DOMAINS = [
-    "https://dev-uploads.cinemata.org",
-    "https://uploads.cinemata.org",
-    "https://stage-uploads.cinemata.org",
+    "https://upload.cinemata.org",
 ]
 ALL_DOMAINS_HOSTNAMES = [
     url.replace("https://", "").replace("http://", "") for url in MAIN_DOMAINS + UPLOAD_DOMAINS
@@ -51,12 +47,31 @@ CORS_ALLOWED_ORIGINS = [
 ]
 CORS_ALLOW_CREDENTIALS = True
 
+# Import default headers to extend them
+from corsheaders.defaults import default_headers
+
+CORS_ALLOW_HEADERS = default_headers + (
+    'x-requested-with',     # Add X-Requested-With
+    'if-modified-since',    # Add If-Modified-Since
+    'cache-control',        # Add Cache-Control
+    'content-type',         # Add Content-Type (important for application/json etc.)
+    'range',                # Add Range
+    'dnt',               # Generally not needed as DNT is safelisted
+    'user-agent',        # Generally not needed as User-Agent is safelisted
+)
+#crucial for exposing response headers to frontend JavaScript
+CORS_EXPOSE_HEADERS = [
+    'Content-Length',
+    'Content-Range',
+]
+
+
 INTERNAL_IPS = "127.0.0.1"
 FRONTEND_HOST = "http://cinemata.org"
 SSL_FRONTEND_HOST = FRONTEND_HOST.replace("http", "https")
 
 # Upload subdomain configuration
-UPLOAD_SUBDOMAIN = os.getenv('UPLOAD_SUBDOMAIN', 'uploads.cinemata.org')
+UPLOAD_SUBDOMAIN = os.getenv('UPLOAD_SUBDOMAIN', 'upload.cinemata.org')
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -95,7 +110,6 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
-    "uploader.middleware.UploadCorsMiddleware",  # Custom CORS middleware for upload endpoints
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -531,7 +545,6 @@ from .local_settings import *
 WHISPER_COMMAND = "/home/cinemata/bin/whisper"
 WHISPER_SIZE = "base"
 
-ALLOWED_HOSTS.append(FRONTEND_HOST.replace("http://", "").replace("https://", ""))
 ALLOWED_MEDIA_UPLOAD_TYPES = ['video']
 
 RECAPTCHA_PRIVATE_KEY = ""

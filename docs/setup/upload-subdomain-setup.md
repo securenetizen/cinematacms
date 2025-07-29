@@ -288,15 +288,31 @@ var uploader = new qq.FineUploader({
 Add the following DNS records to your domain configuration:
 
 ```
-upload.cinemata.org    A    <your-server-ip>
+uploads.cinemata.org    A    <your-server-ip>
 ```
 
 Or for local development, add to your `/etc/hosts` file:
 ```
-127.0.0.1    upload.cinemata.org
+127.0.0.1    uploads.cinemata.org
 ```
 
-### 2. SSL Certificate (Required for Production)
+### 2. Nginx Configuration
+
+Use the dedicated upload subdomain configuration:
+
+```bash
+# Copy the upload subdomain configuration
+sudo cp deploy/upload-subdomain.conf /etc/nginx/sites-available/upload.cinemata.org
+
+# Make sure to change the domain name
+sudo nano /etc/nginx/sites-available/upload.cinemata.org
+
+# Test configuration
+sudo nginx -t
+
+```
+
+### 3. SSL Certificate (Required for Production)
 
 Ensure your certificate covers the upload subdomain. For Let's Encrypt:
 
@@ -308,25 +324,20 @@ certbot certonly --nginx -d cinemata.org -d upload.cinemata.org
 certbot certonly --nginx -d upload.cinemata.org
 ```
 
-### 3. Nginx Configuration
-
-Use the dedicated upload subdomain configuration:
+### 4. Enable Nginx Configuration
 
 ```bash
-# Copy the upload subdomain configuration
-sudo cp deploy/upload-subdomain.conf /etc/nginx/sites-available/upload.cinemata.org
+# Edit the Nginx configuration to include the newly generated ssl certificate paths
+sudo nano /etc/nginx/sites-available/upload.cinemata.org
+sudo nano /etc/nginx/sites-enabled/mediacms.io
 
-# Test configuration
-sudo nginx -t
-
-# Enable the upload subdomain site
-sudo ln -s /etc/nginx/sites-available/upload.cinemata.org /etc/nginx/sites-enabled/
-
-# Reload nginx
+# Enable the upload subdomain configuration
+sudo ln -s /etc/nginx/sites-available/upload.cinemata.org /etc/nginx/sites-enabled/ upload.cinemata.org
+# Reload Nginx to apply changes
 sudo systemctl reload nginx
 ```
 
-### 4. Django Settings
+### 5. Django Settings
 
 Update your Django settings to include the upload subdomain configuration:
 
