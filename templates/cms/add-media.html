@@ -178,10 +178,12 @@
 			debug: false,
 			element: document.querySelector('.media-uploader'),
 			request: {
-				endpoint: '{% url 'uploader:upload' %}',
+				endpoint: '{{UPLOAD_HOST}}{% url 'uploader:upload' %}',
 				customHeaders: {
 					'X-CSRFToken': getCSRFToken('csrftoken'),
+
 				},
+				withCredentials: true
 			},
 			retry: {
 				enableAuto: true,
@@ -194,13 +196,17 @@
 				itemLimit: {{UPLOAD_MAX_FILES_NUMBER}},
 				sizeLimit: {{UPLOAD_MAX_SIZE}},
 			},
+			cors: {
+				expected: true,  // Enable CORS support
+				sendCredentials: true  // Send credentials for CORS requests
+			},
 			chunking: {
 				enabled: true,
 				concurrent: {
 					enabled: true,
 				},
 				success: {
-					endpoint: '{% url 'uploader:upload' %}?done',
+					endpoint: '{{UPLOAD_HOST}}{% url 'uploader:upload' %}?done',
 				},
 			},
 			callbacks: {
