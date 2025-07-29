@@ -19,6 +19,8 @@ The upload subdomain is fully configurable through Django settings, eliminating 
 
 The nginx configuration includes server blocks for the upload subdomain with security measures:
 
+> **Note**: CORS handling has been moved from nginx to Django middleware for better control and flexibility. The nginx configuration focuses on SSL termination, request routing, and basic security headers.
+
 #### HTTP (Port 80) - Force HTTPS
 ```nginx
 server {
@@ -89,26 +91,24 @@ The Django settings include security configurations for cross-domain uploads:
 #### Upload Subdomain Configuration
 ```python
 # Upload subdomain configuration
-UPLOAD_SUBDOMAIN = os.getenv('UPLOAD_SUBDOMAIN', 'uploads.cinemata.org')
+UPLOAD_SUBDOMAIN = os.getenv('UPLOAD_SUBDOMAIN', 'upload.cinemata.org')
 
-# Domain Configuration
-MAIN_DOMAINS = [
-    "https://cinemata.org",
-    "https://www.cinemata.org",
-]
-UPLOAD_DOMAINS = [
-    "https://uploads.cinemata.org",
-]
-
-# Dynamic Host Configuration
+# Allowed hosts configuration
 ALLOWED_HOSTS = [
     "127.0.0.1",
     "localhost",
-    *[url.replace("https://", "").replace("http://", "") for url in MAIN_DOMAINS + UPLOAD_DOMAINS]
+    "cinemata.org",
+    "www.cinemata.org",
+    "upload.cinemata.org",
+    ".cinemata.org",
 ]
 
 # CSRF Trusted Origins for cross-domain uploads
-CSRF_TRUSTED_ORIGINS = MAIN_DOMAINS + UPLOAD_DOMAINS
+CSRF_TRUSTED_ORIGINS = [
+    "https://cinemata.org",
+    "https://www.cinemata.org",
+    "https://upload.cinemata.org",
+]
 
 # Cookie Settings for Cross-Domain Support
 SESSION_COOKIE_DOMAIN = ".cinemata.org"
@@ -120,10 +120,10 @@ CSRF_COOKIE_SECURE = True
 ```
 
 #### Security Middleware Configuration
+
 ```python
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",  # Django CORS Headers middleware
-    "uploader.middleware.UploadCorsMiddleware",  # Custom CORS middleware for upload endpoints
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -139,66 +139,55 @@ MIDDLEWARE = [
 
 ### 3. CORS Configuration
 
-The system uses a dual CORS approach combining Django CORS Headers and custom middleware:
+The system uses Django CORS Headers middleware for cross-domain request handling instead of nginx CORS configuration. This approach provides better control and flexibility for handling complex CORS scenarios.
+
+> **Important**: CORS handling has been moved from nginx to Django middleware. The main site nginx configuration no longer includes CORS headers, as they are now handled by Django's `corsheaders.middleware.CorsMiddleware`.
 
 #### Django CORS Headers Configuration
+
 ```python
 # CORS configuration in settings.py
 CORS_ALLOWED_ORIGINS = [
-    *MAIN_DOMAINS,
-    *UPLOAD_DOMAINS
-    # Add other allowed origins
+    "https://cinemata.org",
+    "https://www.cinemata.org",
+    "https://upload.cinemata.org",
 ]
 CORS_ALLOW_CREDENTIALS = True
 
+# Import default headers to extend them
+from corsheaders.defaults import default_headers
+
+CORS_ALLOW_HEADERS = default_headers + (
+    'x-requested-with',     # Add X-Requested-With
+    'if-modified-since',    # Add If-Modified-Since
+    'cache-control',        # Add Cache-Control
+    'content-type',         # Add Content-Type (important for application/json etc.)
+    'range',                # Add Range
+    'dnt',                  # Generally not needed as DNT is safelisted
+    'user-agent',           # Generally not needed as User-Agent is safelisted
+)
+
+# Crucial for exposing response headers to frontend JavaScript
+CORS_EXPOSE_HEADERS = [
+    'Content-Length',
+    'Content-Range',
+]
+
 # Development fallback (in local_settings.py)
-CORS_ORIGIN_ALLOW_ALL = True
+# CORS_ORIGIN_ALLOW_ALL = True
 ```
 
-#### Custom UploadCorsMiddleware
-The system also uses a custom `UploadCorsMiddleware` for upload-specific CORS handling:
+#### CORS Architecture Decision
 
-```python
-class UploadCorsMiddleware(MiddlewareMixin):
-    """
-    Custom CORS middleware for upload endpoints that supports credentials.
+The system previously used nginx CORS headers but has been migrated to Django CORS Headers middleware for the following reasons:
 
-    Features:
-    - Handles OPTIONS preflight requests
-    - Sets appropriate CORS headers for upload endpoints
-    - Supports multiple allowed origins with credentials
-    - Only applies to upload-related URLs (/fu/ paths)
-    """
+1. **Better Control**: Django middleware provides more granular control over CORS policies
+2. **Dynamic Configuration**: CORS settings can be configured per environment without nginx changes
+3. **Integration**: Better integration with Django's authentication and session management
+4. **Debugging**: Easier to debug CORS issues within the Django application
+5. **Maintenance**: Centralized CORS configuration in Django settings instead of split between nginx and Django
 
-    def _add_cors_headers(self, request, response):
-        """Add CORS headers to response"""
-        origin = request.META.get('HTTP_ORIGIN', '')
-
-        # Get allowed origins from settings
-        main_domains = getattr(settings, 'MAIN_DOMAINS', [])
-        upload_domains = getattr(settings, 'UPLOAD_DOMAINS', [])
-        allowed_origins = main_domains + upload_domains
-
-        # Check if origin is allowed
-        if origin in allowed_origins:
-            response['Access-Control-Allow-Origin'] = origin
-            response['Access-Control-Allow-Credentials'] = 'true'
-        else:
-            # Fallback for development - allow localhost variations
-            if any(domain in origin for domain in ['localhost', '127.0.0.1']) and settings.DEBUG:
-                response['Access-Control-Allow-Origin'] = origin
-                response['Access-Control-Allow-Credentials'] = 'true'
-
-        # Set other CORS headers
-        response['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
-        response['Access-Control-Allow-Headers'] = (
-            'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,'
-            'Content-Type,Range,X-CSRFToken,Authorization'
-        )
-        response['Access-Control-Expose-Headers'] = 'Content-Length,Content-Range'
-
-        return response
-```
+The main site nginx configuration has been simplified and CORS headers removed, delegating all CORS handling to Django middleware.
 
 ### 4. Frontend Configuration
 
@@ -275,11 +264,12 @@ var uploader = new qq.FineUploader({
 ### 🌐 Network Security
 
 1. **CORS Configuration**
-   - Dual CORS approach: Django CORS Headers + Custom UploadCorsMiddleware
+   - Django CORS Headers middleware handles all CORS requests (nginx CORS headers removed)
    - Whitelist-based origin control using `CORS_ALLOWED_ORIGINS`
    - Credentials support for authenticated uploads (`CORS_ALLOW_CREDENTIALS = True`)
    - Development fallback with `CORS_ORIGIN_ALLOW_ALL = True`
-   - Proper preflight request handling
+   - Proper preflight request handling by Django middleware
+   - Simplified nginx configuration without CORS headers
 
 ## Setup Instructions
 
@@ -287,16 +277,58 @@ var uploader = new qq.FineUploader({
 
 Add the following DNS records to your domain configuration:
 
-```
-uploads.cinemata.org    A    <your-server-ip>
+```dns
+upload.cinemata.org    A    <your-server-ip>
 ```
 
 Or for local development, add to your `/etc/hosts` file:
-```
-127.0.0.1    uploads.cinemata.org
+
+```hosts
+127.0.0.1    upload.cinemata.org
 ```
 
-### 2. Nginx Configuration
+### 2. Remove CORS Headers from Main Site Nginx Configuration
+
+Before setting up the upload subdomain, you need to remove CORS headers from the main site nginx configuration since CORS is now handled by Django middleware:
+
+```bash
+# 1. Backup your current nginx configuration
+sudo cp /etc/nginx/sites-available/mediacms.io /etc/nginx/sites-available/mediacms.io.backup
+
+# 2. Edit the main site nginx configuration
+sudo nano /etc/nginx/sites-available/mediacms.io
+```
+
+**Remove the following CORS-related headers from your main site nginx configuration:**
+
+```nginx
+# Remove these lines if they exist in your nginx configuration:
+add_header Access-Control-Allow-Origin *;
+add_header Access-Control-Allow-Methods "GET, POST, OPTIONS, PUT, DELETE";
+add_header Access-Control-Allow-Headers "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization";
+add_header Access-Control-Expose-Headers "Content-Length,Content-Range";
+add_header Access-Control-Allow-Credentials true;
+
+# Also remove any location blocks specifically for OPTIONS requests like:
+# location ~* \.(eot|ttf|woff|woff2)$ {
+#     add_header Access-Control-Allow-Origin *;
+# }
+
+# Or any other CORS-related add_header directives
+```
+
+**Test and reload nginx after removing CORS headers:**
+
+```bash
+# 3. Test nginx configuration
+sudo nginx -t
+
+# 4. If test passes, reload nginx
+sudo systemctl reload nginx
+
+```
+
+### 3. Upload Subdomain Nginx Configuration
 
 Use the dedicated upload subdomain configuration:
 
@@ -312,7 +344,7 @@ sudo nginx -t
 
 ```
 
-### 3. SSL Certificate (Required for Production)
+### 4. SSL Certificate (Required for Production)
 
 Ensure your certificate covers the upload subdomain. For Let's Encrypt:
 
@@ -324,7 +356,7 @@ certbot certonly --nginx -d cinemata.org -d upload.cinemata.org
 certbot certonly --nginx -d upload.cinemata.org
 ```
 
-### 4. Enable Nginx Configuration
+### 5. Enable Nginx Configuration
 
 ```bash
 # Edit the Nginx configuration to include the newly generated ssl certificate paths
@@ -337,38 +369,73 @@ sudo ln -s /etc/nginx/sites-available/upload.cinemata.org /etc/nginx/sites-enabl
 sudo systemctl reload nginx
 ```
 
-### 5. Django Settings
+### 6. Django Settings (OPTIONAL)
 
 Update your Django settings to include the upload subdomain configuration:
 
 ```python
 # In cms/local_settings.py or cms/settings.py
-UPLOAD_SUBDOMAIN = os.getenv('UPLOAD_SUBDOMAIN', 'uploads.cinemata.org')
+UPLOAD_SUBDOMAIN = os.getenv('UPLOAD_SUBDOMAIN', 'upload.cinemata.org')
 
-# Add to ALLOWED_HOSTS
-ALLOWED_HOSTS.extend([UPLOAD_SUBDOMAIN])
+# Update ALLOWED_HOSTS to include the upload subdomain
+ALLOWED_HOSTS = [
+    "127.0.0.1",
+    "localhost",
+    "cinemata.org",
+    "www.cinemata.org",
+    "upload.cinemata.org",
+    ".cinemata.org",
+]
 
 # Add to CSRF_TRUSTED_ORIGINS
-CSRF_TRUSTED_ORIGINS.extend([
-    f"https://{UPLOAD_SUBDOMAIN}",
-])
+CSRF_TRUSTED_ORIGINS = [
+    "https://cinemata.org",
+    "https://www.cinemata.org",
+    "https://upload.cinemata.org",
+]
+
+# Update CORS_ALLOWED_ORIGINS
+CORS_ALLOWED_ORIGINS = [
+    "https://cinemata.org",
+    "https://www.cinemata.org",
+    "https://upload.cinemata.org",
+]
 ```
 
 ## Customization
 
 ### Changing the Upload Subdomain
 
-To use a different upload subdomain:
-
+To use a different upload subdomain, update the following settings:
 
 ```python
+# Update the upload subdomain
 UPLOAD_SUBDOMAIN = "files.yourdomain.com"
-```
 
-The system will automatically:
-- Add the new subdomain to `ALLOWED_HOSTS`
-- Configure CSRF trusted origins
-- Generate the correct frontend URLs
+# Update ALLOWED_HOSTS to include your new subdomain
+ALLOWED_HOSTS = [
+    "127.0.0.1",
+    "localhost",
+    "yourdomain.com",
+    "www.yourdomain.com",
+    "files.yourdomain.com",
+    ".yourdomain.com",
+]
+
+# Update CSRF_TRUSTED_ORIGINS
+CSRF_TRUSTED_ORIGINS = [
+    "https://yourdomain.com",
+    "https://www.yourdomain.com",
+    "https://files.yourdomain.com",
+]
+
+# Update CORS_ALLOWED_ORIGINS
+CORS_ALLOWED_ORIGINS = [
+    "https://yourdomain.com",
+    "https://www.yourdomain.com",
+    "https://files.yourdomain.com",
+]
+```
 
 
 ## Monitoring & Logging
@@ -394,6 +461,58 @@ location /health {
 ```
 
 ## Troubleshooting
+
+### CORS Migration Issues
+
+If you're migrating from nginx CORS to Django CORS middleware and experiencing issues:
+
+1. **Verify all nginx CORS headers have been removed**:
+   ```bash
+   # Check your main site nginx configuration for any remaining CORS headers
+   sudo grep -i "access-control" /etc/nginx/sites-available/mediacms.io
+
+   # This command should return no results if all CORS headers are removed
+   ```
+
+2. **Check for conflicting CORS headers**:
+   ```bash
+   # Test if nginx is still sending CORS headers (should not show any Access-Control headers)
+   curl -I https://cinemata.org
+
+   # Test if Django middleware is working (should show CORS headers)
+   curl -H "Origin: https://cinemata.org" -I https://cinemata.org/
+   ```
+
+3. **Verify Django CORS middleware is properly configured**:
+   ```python
+   # In settings.py, ensure CorsMiddleware is first in MIDDLEWARE
+   MIDDLEWARE = [
+       "corsheaders.middleware.CorsMiddleware",  # Must be first
+       "django.middleware.security.SecurityMiddleware",
+       # ... other middleware
+   ]
+   ```
+
+4. **Common nginx CORS remnants to remove**:
+   ```nginx
+   # Remove ALL of these from your nginx configuration:
+   add_header Access-Control-Allow-Origin $http_origin always;
+   add_header Access-Control-Allow-Credentials true always;
+   add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS" always;
+   add_header Access-Control-Allow-Headers "Accept,Authorization,Cache-Control,Content-Type,DNT,If-Modified-Since,Keep-Alive,Origin,User-Agent,X-Requested-With" always;
+   add_header Access-Control-Expose-Headers "Content-Length,Content-Range" always;
+
+   # Also remove any location blocks handling OPTIONS requests for CORS
+   if ($request_method = 'OPTIONS') {
+       add_header Access-Control-Allow-Origin $http_origin;
+       add_header Access-Control-Allow-Methods 'GET, POST, OPTIONS';
+       add_header Access-Control-Allow-Headers 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range';
+       add_header Access-Control-Max-Age 1728000;
+       add_header Content-Type 'text/plain; charset=utf-8';
+       add_header Content-Length 0;
+       return 204;
+   }
+   ```
 
 ### CSRF Token Issues
 
@@ -439,22 +558,43 @@ UPLOAD_MAX_SIZE = 2 * 1024 * 1024 * 1024  # 2GB in bytes
 
 ### CORS Issues
 
-If you need more restrictive CORS policies:
+CORS is now handled entirely by Django middleware instead of nginx. If you encounter CORS issues:
 
-```python
-# In settings.py - Configure allowed origins
-CORS_ALLOWED_ORIGINS = [
-    "https://cinemata.org",
-    "https://www.cinemata.org",
-    "https://upload.cinemata.org",
-]
+1. **Verify Django CORS Headers Middleware is installed and configured**:
+   ```python
+   # Ensure corsheaders is in MIDDLEWARE (should be first)
+   MIDDLEWARE = [
+       "corsheaders.middleware.CorsMiddleware",
+       # ... other middleware
+   ]
+   ```
 
-# Ensure credentials are allowed
-CORS_ALLOW_CREDENTIALS = True
+2. **Check CORS Origins Configuration**:
+   ```python
+   # In settings.py - Configure allowed origins
+   CORS_ALLOWED_ORIGINS = [
+       "https://cinemata.org",
+       "https://www.cinemata.org",
+       "https://upload.cinemata.org",
+   ]
 
-# For development, you can use:
-# CORS_ORIGIN_ALLOW_ALL = True
-```
+   # Ensure credentials are allowed
+   CORS_ALLOW_CREDENTIALS = True
+   ```
+
+3. **Remove any nginx CORS headers** (if migrating from nginx CORS):
+   ```nginx
+   # These should NOT be present in nginx configuration anymore:
+   # add_header Access-Control-Allow-Origin *;
+   # add_header Access-Control-Allow-Methods GET, POST, OPTIONS;
+   # add_header Access-Control-Allow-Headers DNT,User-Agent,X-Requested-With;
+   ```
+
+4. **For development environments, you can use**:
+   ```python
+   # For development, you can use:
+   # CORS_ORIGIN_ALLOW_ALL = True
+   ```
 
 ## Development vs Production
 

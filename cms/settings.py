@@ -8,26 +8,21 @@ PORTAL_NAME = "EngageMedia Video"  #  this is shown on several places, eg on con
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "Europe/London"
 
-# Domain Configuration
-MAIN_DOMAINS = [
-    "https://cinemata.org",
-    "https://www.cinemata.org",
-]
-UPLOAD_DOMAINS = [
-    "https://upload.cinemata.org",
-]
-ALL_DOMAINS_HOSTNAMES = [
-    url.replace("https://", "").replace("http://", "") for url in MAIN_DOMAINS + UPLOAD_DOMAINS
-]
-
 ALLOWED_HOSTS = [
     "127.0.0.1",
     "localhost",
-    *ALL_DOMAINS_HOSTNAMES,
+    "cinemata.org",
+    "www.cinemata.org",
+    "upload.cinemata.org",
+    ".cinemata.org",
 ]
 
 # CSRF Trusted Origins for upload subdomain
-CSRF_TRUSTED_ORIGINS = MAIN_DOMAINS + UPLOAD_DOMAINS
+CSRF_TRUSTED_ORIGINS = [
+    "https://cinemata.org",
+    "https://www.cinemata.org",
+    "https://upload.cinemata.org",
+]
 
 # Cookie Settings for Cross-Domain Support
 # NOTE: For production, set these to your parent domain, e.g., ".yourdomain.org"
@@ -41,9 +36,9 @@ CSRF_COOKIE_SECURE = True
 
 # Cors section
 CORS_ALLOWED_ORIGINS = [
-    *MAIN_DOMAINS,
-    *UPLOAD_DOMAINS
-    # Add other allowed origins
+    "https://cinemata.org",
+    "https://www.cinemata.org",
+    "https://upload.cinemata.org",
 ]
 CORS_ALLOW_CREDENTIALS = True
 
