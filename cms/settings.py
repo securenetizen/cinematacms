@@ -12,10 +12,60 @@ ALLOWED_HOSTS = [
     "localhost",
     "cinemata.org",
     "www.cinemata.org",
+    "upload.cinemata.org",
+    ".cinemata.org",
 ]
+
+# CSRF Trusted Origins for upload subdomain
+CSRF_TRUSTED_ORIGINS = [
+    "https://cinemata.org",
+    "https://www.cinemata.org",
+    "https://upload.cinemata.org",
+]
+
+# Cookie Settings for Cross-Domain Support
+# NOTE: For production, set these to your parent domain, e.g., ".yourdomain.org"
+SESSION_COOKIE_DOMAIN = ".cinemata.org"
+CSRF_COOKIE_DOMAIN = ".cinemata.org"
+SESSION_COOKIE_SAMESITE = 'None'
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SAMESITE = 'None'
+CSRF_COOKIE_SECURE = True
+
+
+# Cors section
+CORS_ALLOWED_ORIGINS = [
+    "https://cinemata.org",
+    "https://www.cinemata.org",
+    "https://upload.cinemata.org",
+]
+CORS_ALLOW_CREDENTIALS = True
+
+# Import default headers to extend them
+from corsheaders.defaults import default_headers
+
+CORS_ALLOW_HEADERS = default_headers + (
+    'x-requested-with',     # Add X-Requested-With
+    'if-modified-since',    # Add If-Modified-Since
+    'cache-control',        # Add Cache-Control
+    'content-type',         # Add Content-Type (important for application/json etc.)
+    'range',                # Add Range
+    'dnt',               # Generally not needed as DNT is safelisted
+    'user-agent',        # Generally not needed as User-Agent is safelisted
+)
+#crucial for exposing response headers to frontend JavaScript
+CORS_EXPOSE_HEADERS = [
+    'Content-Length',
+    'Content-Range',
+]
+
+
 INTERNAL_IPS = "127.0.0.1"
 FRONTEND_HOST = "http://cinemata.org"
 SSL_FRONTEND_HOST = FRONTEND_HOST.replace("http", "https")
+
+# Upload subdomain configuration
+UPLOAD_SUBDOMAIN = os.getenv('UPLOAD_SUBDOMAIN', 'upload.cinemata.org')
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -52,6 +102,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
