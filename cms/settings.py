@@ -7,7 +7,6 @@ from .settings_utils import get_whisper_cpp_paths
 PORTAL_NAME = "EngageMedia Video"  #  this is shown on several places, eg on contact email, or html title
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "Europe/London"
-
 ALLOWED_HOSTS = [
     "127.0.0.1",
     "localhost",
@@ -100,7 +99,6 @@ INSTALLED_APPS = [
     "djcelery_email",
     "tinymce",
     "captcha",
-    "corsheaders",
 ]
 
 MIDDLEWARE = [
@@ -535,9 +533,7 @@ DJANGO_ADMIN_URL = "admin_for_cinemata_xy/"
 
 WHISPER_CPP_DIR, WHISPER_CPP_COMMAND, WHISPER_CPP_MODEL = get_whisper_cpp_paths()
 from .local_settings import *
-
-
-WHISPER_COMMAND = "/home/cinemata/bin/whisper"
+ALLOWED_HOSTS.append(FRONTEND_HOST.replace("http://", "").replace("https://", ""))
 WHISPER_SIZE = "base"
 
 ALLOWED_MEDIA_UPLOAD_TYPES = ['video']

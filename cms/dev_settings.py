@@ -4,23 +4,10 @@ import os
 PORTAL_NAME = "EngageMedia Video"  #  this is shown on several places, eg on contact email, or html title
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "Europe/London"
-ALLOWED_HOSTS = ["*"]  # Development allows all hosts, but production should be more restrictive
+ALLOWED_HOSTS = ["*"]
 INTERNAL_IPS = "127.0.0.1"
 FRONTEND_HOST = "http://localhost:8000"
 SSL_FRONTEND_HOST = FRONTEND_HOST.replace("http", "https")
-
-# Upload subdomain configuration
-UPLOAD_SUBDOMAIN = os.getenv('UPLOAD_SUBDOMAIN', 'localhost:8000')
-
-# CSRF and Session Cookie Configuration for Cross-Domain Authentication
-SESSION_COOKIE_DOMAIN = None  # Use default for localhost
-CSRF_COOKIE_DOMAIN = None  # Use default for localhost
-CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:8000",
-    "http://127.0.0.1:8000",
-    "https://dev.cinemata.org",
-    "http://dev.cinemata.org",
-]
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -57,7 +44,6 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
-    "uploader.middleware.UploadCorsMiddleware",  # Custom CORS middleware for upload endpoints
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -113,7 +99,7 @@ AUTH_PASSWORD_VALIDATORS = [
         "NAME": "users.password_validators.CustomCommonPasswordValidator",
     },
     {
-        # Checks whether the password 'isnt entirely numeric
+        # Checks whether the password ’isnt entirely numeric
         "NAME": "users.password_validators.CustomNumericPasswordValidator",
     },
 ]
@@ -214,30 +200,6 @@ REST_FRAMEWORK = {
     ],
 }
 
-CORS_ORIGIN_ALLOW_ALL = False
-
-# Domain Configuration for Development Environment
-MAIN_DOMAINS = [
-    "http://localhost:8000",
-    "http://127.0.0.1:8000",
-    "https://dev.cinemata.org",
-]
-
-UPLOAD_DOMAINS = [
-    "http://localhost:8000",
-    "http://127.0.0.1:8000",
-    "https://dev-uploads.cinemata.org",
-]
-
-# Add hostnames to ALLOWED_HOSTS for cross-subdomain support
-ALLOWED_HOSTS.extend([
-    "localhost", "127.0.0.1",
-    "dev.cinemata.org", "dev-uploads.cinemata.org",
-])
-
-# Trust main and upload domains for CSRF purposes
-CSRF_TRUSTED_ORIGINS.extend(MAIN_DOMAINS)
-CSRF_TRUSTED_ORIGINS.extend(UPLOAD_DOMAINS)
 
 SECRET_KEY = "2dii4cog7k=5n37$fz)8dst)kg(s3&10)^qa*gv(kk+nv-z&cu"
 # mediacms related
@@ -412,6 +374,8 @@ CELERY_ALWAYS_EAGER = True
 
 # STATICFILES_STORAGE = "whitenoise.storage.CompressedStaticFilesStorage"
 DEBUG = True
+CORS_ORIGIN_ALLOW_ALL = True
+INSTALLED_APPS.append("corsheaders")
 
 PYSUBS_COMMAND = "pysubs2"
 

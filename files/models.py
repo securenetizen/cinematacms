@@ -785,37 +785,33 @@ class Media(models.Model):
     @property
     def original_media_url(self):
         if settings.SHOW_ORIGINAL_MEDIA:
-            version = self.get_media_version()
-            return f"{helpers.url_from_path(self.media_file.path)}?v={version}"
+            return helpers.url_from_path(self.media_file.path)
         else:
             return None
 
     @property
     def thumbnail_url(self):
-        version = self.get_media_version()
         if self.uploaded_thumbnail:
-            return f"{helpers.url_from_path(self.uploaded_thumbnail.path)}?v={version}"
+            return helpers.url_from_path(self.uploaded_thumbnail.path)
         if self.thumbnail:
-            return f"{helpers.url_from_path(self.thumbnail.path)}?v={version}"
+            return helpers.url_from_path(self.thumbnail.path)
         return None
 
     @property
     def poster_url(self):
-        version = self.get_media_version()
         if self.uploaded_poster:
-            return f"{helpers.url_from_path(self.uploaded_poster.path)}?v={version}"
+            return helpers.url_from_path(self.uploaded_poster.path)
         if self.poster:
-            return f"{helpers.url_from_path(self.poster.path)}?v={version}"
+            return helpers.url_from_path(self.poster.path)
         return None
 
     @property
     def subtitles_info(self):
         ret = []
-        version = self.get_media_version()
         for subtitle in self.subtitles.all():
             ret.append(
                 {
-                    "src": f"{helpers.url_from_path(subtitle.subtitle_file.path)}?v={version}",
+                    "src": helpers.url_from_path(subtitle.subtitle_file.path),
                     "srclang": subtitle.language.code,
                     "label": subtitle.language.title,
                 }
@@ -825,20 +821,18 @@ class Media(models.Model):
     @property
     def sprites_url(self):
         if self.sprites:
-            version = self.get_media_version()
-            return f"{helpers.url_from_path(self.sprites.path)}?v={version}"
+            return helpers.url_from_path(self.sprites.path)
         return None
 
     @property
     def preview_url(self):
         if self.preview_file_path:
-            version = self.get_media_version()
-            return f"{helpers.url_from_path(self.preview_file_path)}?v={version}"
+            return helpers.url_from_path(self.preview_file_path)
         # get preview_file out of the encodings, since some times preview_file_path
         # is empty but there is the gif encoding!
         preview_media = self.encodings.filter(profile__extension="gif").first()
         if preview_media and preview_media.media_file:
-            return preview_media.media_encoding_url
+            return helpers.url_from_path(preview_media.media_file.path)
         return None
 
     @property
@@ -846,26 +840,27 @@ class Media(models.Model):
         res = {}
         if self.hls_file:
             if os.path.exists(self.hls_file):
-                version = self.get_media_version()
                 hls_file = self.hls_file
                 p = os.path.dirname(hls_file)
                 m3u8_obj = m3u8.load(hls_file)
                 if os.path.exists(hls_file):
-                    res["master_file"] = f"{helpers.url_from_path(hls_file)}?v={version}"
+                    res["master_file"] = helpers.url_from_path(hls_file)
                     for iframe_playlist in m3u8_obj.iframe_playlists:
                         uri = os.path.join(p, iframe_playlist.uri)
                         if os.path.exists(uri):
                             resolution = iframe_playlist.iframe_stream_info.resolution[
                                 1
                             ]
-                            res[f"{resolution}_iframe"] = f"{helpers.url_from_path(uri)}?v={version}"
+                            res["{}_iframe".format(resolution)] = helpers.url_from_path(
+                                uri
+                            )
                     for playlist in m3u8_obj.playlists:
                         uri = os.path.join(p, playlist.uri)
                         if os.path.exists(uri):
                             resolution = playlist.stream_info.resolution[1]
                             res[
-                                f"{resolution}_playlist"
-                            ] = f"{helpers.url_from_path(uri)}?v={version}"
+                                "{}_playlist".format(resolution)
+                            ] = helpers.url_from_path(uri)
         return res
 
     @property
@@ -881,9 +876,6 @@ class Media(models.Model):
 
     def author_thumbnail(self):
         return helpers.url_from_path(self.user.logo.path)
-
-    def get_media_version(self):
-        return int(self.edit_date.timestamp())
 
     def get_absolute_url(self, api=False, edit=False):
         if edit:
@@ -1226,8 +1218,7 @@ class Encoding(models.Model):
     @property
     def media_encoding_url(self):
         if self.media_file:
-            version = self.media.get_media_version()
-            return f"{helpers.url_from_path(self.media_file.path)}?v={version}"
+            return helpers.url_from_path(self.media_file.path)
         return None
 
     @property
@@ -1435,7 +1426,7 @@ class Playlist(models.Model):
 
     class Meta:
         ordering = ["-add_date"]  # This will show newest playlists first
-
+        
 class PlaylistMedia(models.Model):
     media = models.ForeignKey(Media, on_delete=models.CASCADE)
     playlist = models.ForeignKey(Playlist, on_delete=models.CASCADE)
