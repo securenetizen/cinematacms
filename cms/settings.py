@@ -99,6 +99,7 @@ INSTALLED_APPS = [
     "djcelery_email",
     "tinymce",
     "captcha",
+    "corsheaders",
 ]
 
 MIDDLEWARE = [
