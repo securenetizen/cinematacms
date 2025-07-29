@@ -538,7 +538,7 @@ MFA_ENFORCE_ON_PATHS = [f'/{DJANGO_ADMIN_URL}']
 MFA_EXCLUDE_PATHS = ['/fu/', '/api/', '/manage/', '/accounts/']
 
 # additional MFA-permission configs
-MFA_REQUIRED_ROLES = ['superuser']
+MFA_REQUIRED_ROLES = ['superuser', 'manager']
 MFA_ENFORCE_ON_PATHS = [f'/{DJANGO_ADMIN_URL}']
 MFA_EXCLUDE_PATHS = ['/fu/', '/api/', '/manage/', '/accounts/']
 
