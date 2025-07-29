@@ -76,7 +76,6 @@ Welcome to the comprehensive documentation for CinemataCMS - a platform for show
 - [📁 Directory Structure](technical/directory.md)
 - [📈 System Monitoring & Optimization](technical/system_monitoring_and_optimization.md)
 - [📝 TinyMCE Editor Configuration](technical/tinymce.md)
-- [🌐 Upload Subdomain Configuration](setup/upload-subdomain-setup.md)
 
 ## 🌐 Platform Features
 
