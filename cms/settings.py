@@ -12,10 +12,60 @@ ALLOWED_HOSTS = [
     "localhost",
     "cinemata.org",
     "www.cinemata.org",
+    "upload.cinemata.org",
+    ".cinemata.org",
 ]
+
+# CSRF Trusted Origins for upload subdomain
+CSRF_TRUSTED_ORIGINS = [
+    "https://cinemata.org",
+    "https://www.cinemata.org",
+    "https://upload.cinemata.org",
+]
+
+# Cookie Settings for Cross-Domain Support
+# NOTE: For production, set these to your parent domain, e.g., ".yourdomain.org"
+SESSION_COOKIE_DOMAIN = ".cinemata.org"
+CSRF_COOKIE_DOMAIN = ".cinemata.org"
+SESSION_COOKIE_SAMESITE = 'None'
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SAMESITE = 'None'
+CSRF_COOKIE_SECURE = True
+
+
+# Cors section
+CORS_ALLOWED_ORIGINS = [
+    "https://cinemata.org",
+    "https://www.cinemata.org",
+    "https://upload.cinemata.org",
+]
+CORS_ALLOW_CREDENTIALS = True
+
+# Import default headers to extend them
+from corsheaders.defaults import default_headers
+
+CORS_ALLOW_HEADERS = default_headers + (
+    'x-requested-with',     # Add X-Requested-With
+    'if-modified-since',    # Add If-Modified-Since
+    'cache-control',        # Add Cache-Control
+    'content-type',         # Add Content-Type (important for application/json etc.)
+    'range',                # Add Range
+    'dnt',               # Generally not needed as DNT is safelisted
+    'user-agent',        # Generally not needed as User-Agent is safelisted
+)
+#crucial for exposing response headers to frontend JavaScript
+CORS_EXPOSE_HEADERS = [
+    'Content-Length',
+    'Content-Range',
+]
+
+
 INTERNAL_IPS = "127.0.0.1"
 FRONTEND_HOST = "http://cinemata.org"
 SSL_FRONTEND_HOST = FRONTEND_HOST.replace("http", "https")
+
+# Upload subdomain configuration
+UPLOAD_SUBDOMAIN = os.getenv('UPLOAD_SUBDOMAIN', 'upload.cinemata.org')
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -49,9 +99,11 @@ INSTALLED_APPS = [
     "djcelery_email",
     "tinymce",
     "captcha",
+    "corsheaders",
 ]
 
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -329,6 +381,19 @@ SHOW_ORIGINAL_MEDIA = True
 # some authentication taking place. Check nginx file and setup a
 # basic http auth user/password if you want to restrict access
 
+# X-Accel-Redirect settings for secure media serving
+# Set to True when using Nginx with X-Accel-Redirect (production)
+# Set to False when using Django development server
+USE_X_ACCEL_REDIRECT = True
+
+# Permission cache settings
+# Set to True to enable Redis caching for permission checks (recommended)
+ENABLE_PERMISSION_CACHE = True
+# Cache timeout for permission checks (in seconds)
+PERMISSION_CACHE_TIMEOUT = 300  # 5 minutes
+# Cache timeout for restricted media with passwords (in seconds)
+RESTRICTED_PERMISSION_CACHE_TIMEOUT = 60  # 1 minute
+
 MAX_MEDIA_PER_PLAYLIST = 70
 FRIENDLY_TOKEN_LEN = 9
 
@@ -462,9 +527,6 @@ TINYMCE_DEFAULT_CONFIG = {
     "file_picker_types": "image",
     "paste_data_images": True,
     "paste_as_text": False,
-    "paste_enable_default_filters": True,
-    "paste_word_valid_elements": "b,strong,i,em,h1,h2,h3,h4,h5,h6,p,br,a,ul,ol,li",
-    "paste_retain_style_properties": "all",
     "paste_remove_styles": False,
     "paste_merge_formats": True,
     "sandbox_iframes": False,
@@ -479,6 +541,16 @@ USE_ROUNDED_CORNERS = True  # Default: rounded corners enabled
 
 # allow option to override the default admin url
 DJANGO_ADMIN_URL = "admin_for_cinemata_xy/"
+
+# additional MFA-permission configs
+MFA_REQUIRED_ROLES = ['superuser', 'manager']
+MFA_ENFORCE_ON_PATHS = [f'/{DJANGO_ADMIN_URL}']
+MFA_EXCLUDE_PATHS = ['/fu/', '/api/', '/manage/', '/accounts/']
+
+# additional MFA-permission configs
+MFA_REQUIRED_ROLES = ['superuser', 'manager']
+MFA_ENFORCE_ON_PATHS = [f'/{DJANGO_ADMIN_URL}']
+MFA_EXCLUDE_PATHS = ['/fu/', '/api/', '/manage/', '/accounts/']
 
 WHISPER_CPP_DIR, WHISPER_CPP_COMMAND, WHISPER_CPP_MODEL = get_whisper_cpp_paths()
 from .local_settings import *
