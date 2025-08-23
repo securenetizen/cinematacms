@@ -57,6 +57,7 @@ CORS_ALLOW_HEADERS = default_headers + (
 CORS_EXPOSE_HEADERS = [
     'Content-Length',
     'Content-Range',
+    'Accept-Ranges',
 ]
 
 
@@ -380,6 +381,22 @@ SHOW_ORIGINAL_MEDIA = True
 # Keep in mind that nginx will serve the file unless there's
 # some authentication taking place. Check nginx file and setup a
 # basic http auth user/password if you want to restrict access
+
+# X-Accel-Redirect settings for secure media serving
+# Set to True when using Nginx with X-Accel-Redirect (production)
+# Set to False when using Django development server
+USE_X_ACCEL_REDIRECT = True
+
+# Permission cache settings
+# Set to True to enable Redis caching for permission checks (recommended)
+ENABLE_PERMISSION_CACHE = True
+# Cache timeout for permission checks (in seconds)
+PERMISSION_CACHE_TIMEOUT = 300  # 5 minutes
+# Cache timeout for restricted media with passwords (in seconds)
+RESTRICTED_PERMISSION_CACHE_TIMEOUT = 60  # 1 minute
+
+PERMISSION_CACHE_KEY_PREFIX = "cinemata_media_permission"
+PERMISSION_CACHE_VERSION = 1
 
 MAX_MEDIA_PER_PLAYLIST = 70
 FRIENDLY_TOKEN_LEN = 9
