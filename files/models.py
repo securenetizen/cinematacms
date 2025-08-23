@@ -13,11 +13,12 @@ from django.contrib.postgres.indexes import BrinIndex, BTreeIndex, GinIndex
 from django.contrib.postgres.search import SearchVectorField
 from django.core.files import File
 from django.db import connection, models
-from django.db.models.signals import m2m_changed, post_delete, post_save, pre_delete
+from django.db.models.signals import m2m_changed, post_delete, post_save, pre_delete, pre_save
 from django.dispatch import receiver
 from django.template.defaultfilters import slugify
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.functional import cached_property
 from django.utils.html import strip_tags
 from imagekit.models import ProcessedImageField
 from imagekit.processors import ResizeToFit
@@ -26,6 +27,7 @@ from mptt.models import MPTTModel, TreeForeignKey
 from . import helpers, lists
 from .methods import is_mediacms_editor, is_mediacms_manager, notify_users, is_media_allowed_type
 from .stop_words import STOP_WORDS
+from .cache_utils import clear_media_permission_cache
 
 logger = logging.getLogger(__name__)
 
@@ -286,6 +288,8 @@ class Media(models.Model):
     __original_media_file = None
     __original_thumbnail_time = None
     __original_uploaded_poster = None
+    __original_state = None
+    __original_password = None
 
     class Meta:
         ordering = ["-add_date"]
@@ -306,6 +310,8 @@ class Media(models.Model):
         self.__original_media_file = self.media_file
         self.__original_thumbnail_time = self.thumbnail_time
         self.__original_uploaded_poster = self.uploaded_poster
+        self.__original_state = self.state
+        self.__original_password = self.password
 
     def save(self, *args, **kwargs):
         if not self.title:
@@ -348,6 +354,12 @@ class Media(models.Model):
             self.state = helpers.get_default_state(user=self.user)
             self.license = License.objects.filter(id=10).first()
         super(Media, self).save(*args, **kwargs)
+
+        # Invalidate permission cache if state or password changed
+        if self.pk and (self.state != self.__original_state or self.password != self.__original_password):
+            self._invalidate_permission_cache()
+            self.__original_state = self.state
+            self.__original_password = self.password
 
         # has to save first for uploaded_poster path to exist
         if (
@@ -434,6 +446,33 @@ class Media(models.Model):
         except:
             pass  # TODO:add log
         return True
+
+    def _invalidate_permission_cache(self):
+        """
+        Invalidate cached permissions when media permissions change.
+
+        This method is called automatically when:
+        - Media state changes (public ↔ private ↔ restricted ↔ unlisted)
+        - Media password changes (for restricted content)
+        - Any other permission-related changes
+
+        The cache invalidation ensures that users see updated permissions
+        immediately after changes, maintaining data consistency.
+
+        Uses the clear_media_permission_cache utility function which:
+        - Clears specific user/media combinations if possible
+        - Falls back to pattern-based clearing for all users
+        - Handles errors gracefully without breaking functionality
+
+        Cache invalidation is controlled by ENABLE_PERMISSION_CACHE setting.
+        """
+        if not getattr(settings, 'ENABLE_PERMISSION_CACHE', True):
+            return
+        try:
+            clear_media_permission_cache(self.uid)
+            logger.debug(f"Invalidated permission cache for media: {self.uid}")
+        except Exception as e:
+            logger.warning(f"Failed to invalidate permission cache for media {self.uid}: {e}")
 
     def media_init(self):
         # new media file uploaded. Check if media type,
@@ -782,36 +821,53 @@ class Media(models.Model):
             ]
         return ret
 
+    @cached_property
+    def media_version(self):
+        """Get media version based on edit_date timestamp for URL versioning"""
+        if self.edit_date:
+            return int(self.edit_date.timestamp())
+        # Fallback to add_date if edit_date is not available
+        if self.add_date:
+            return int(self.add_date.timestamp())
+        # Final fallback: use hash of uid to ensure uniqueness
+        return hash(str(self.uid)) & 0x7FFFFFFF  # Ensure positive 32-bit integer
+
     @property
     def original_media_url(self):
         if settings.SHOW_ORIGINAL_MEDIA:
-            return helpers.url_from_path(self.media_file.path)
+            base_url = helpers.url_from_path(self.media_file.path)
+            return helpers.build_versioned_url(base_url, self.media_version)
         else:
             return None
 
     @property
     def thumbnail_url(self):
         if self.uploaded_thumbnail:
-            return helpers.url_from_path(self.uploaded_thumbnail.path)
+            base_url = helpers.url_from_path(self.uploaded_thumbnail.path)
+            return helpers.build_versioned_url(base_url, self.media_version)
         if self.thumbnail:
-            return helpers.url_from_path(self.thumbnail.path)
+            base_url = helpers.url_from_path(self.thumbnail.path)
+            return helpers.build_versioned_url(base_url, self.media_version)
         return None
 
     @property
     def poster_url(self):
         if self.uploaded_poster:
-            return helpers.url_from_path(self.uploaded_poster.path)
+            base_url = helpers.url_from_path(self.uploaded_poster.path)
+            return helpers.build_versioned_url(base_url, self.media_version)
         if self.poster:
-            return helpers.url_from_path(self.poster.path)
+            base_url = helpers.url_from_path(self.poster.path)
+            return helpers.build_versioned_url(base_url, self.media_version)
         return None
 
     @property
     def subtitles_info(self):
         ret = []
         for subtitle in self.subtitles.all():
+            base_url = helpers.url_from_path(subtitle.subtitle_file.path)
             ret.append(
                 {
-                    "src": helpers.url_from_path(subtitle.subtitle_file.path),
+                    "src": helpers.build_versioned_url(base_url, self.media_version),
                     "srclang": subtitle.language.code,
                     "label": subtitle.language.title,
                 }
@@ -821,18 +877,21 @@ class Media(models.Model):
     @property
     def sprites_url(self):
         if self.sprites:
-            return helpers.url_from_path(self.sprites.path)
+            base_url = helpers.url_from_path(self.sprites.path)
+            return helpers.build_versioned_url(base_url, self.media_version)
         return None
 
     @property
     def preview_url(self):
         if self.preview_file_path:
-            return helpers.url_from_path(self.preview_file_path)
+            base_url = helpers.url_from_path(self.preview_file_path)
+            return helpers.build_versioned_url(base_url, self.media_version)
         # get preview_file out of the encodings, since some times preview_file_path
         # is empty but there is the gif encoding!
         preview_media = self.encodings.filter(profile__extension="gif").first()
         if preview_media and preview_media.media_file:
-            return helpers.url_from_path(preview_media.media_file.path)
+            base_url = helpers.url_from_path(preview_media.media_file.path)
+            return helpers.build_versioned_url(base_url, self.media_version)
         return None
 
     @property
@@ -844,23 +903,24 @@ class Media(models.Model):
                 p = os.path.dirname(hls_file)
                 m3u8_obj = m3u8.load(hls_file)
                 if os.path.exists(hls_file):
-                    res["master_file"] = helpers.url_from_path(hls_file)
+                    base_url = helpers.url_from_path(hls_file)
+                    res["master_file"] = helpers.build_versioned_url(base_url, self.media_version)
                     for iframe_playlist in m3u8_obj.iframe_playlists:
                         uri = os.path.join(p, iframe_playlist.uri)
                         if os.path.exists(uri):
                             resolution = iframe_playlist.iframe_stream_info.resolution[
                                 1
                             ]
-                            res["{}_iframe".format(resolution)] = helpers.url_from_path(
-                                uri
-                            )
+                            base_url = helpers.url_from_path(uri)
+                            res["{}_iframe".format(resolution)] = helpers.build_versioned_url(base_url, self.media_version)
                     for playlist in m3u8_obj.playlists:
                         uri = os.path.join(p, playlist.uri)
                         if os.path.exists(uri):
                             resolution = playlist.stream_info.resolution[1]
+                            base_url = helpers.url_from_path(uri)
                             res[
                                 "{}_playlist".format(resolution)
-                            ] = helpers.url_from_path(uri)
+                            ] = helpers.build_versioned_url(base_url, self.media_version)
         return res
 
     @property
@@ -1218,13 +1278,15 @@ class Encoding(models.Model):
     @property
     def media_encoding_url(self):
         if self.media_file:
-            return helpers.url_from_path(self.media_file.path)
+            base_url = helpers.url_from_path(self.media_file.path)
+            return helpers.build_versioned_url(base_url, self.media.media_version)
         return None
 
     @property
     def media_chunk_url(self):
         if self.chunk_file_path:
-            return helpers.url_from_path(self.chunk_file_path)
+            base_url = helpers.url_from_path(self.chunk_file_path)
+            return helpers.build_versioned_url(base_url, self.media.media_version)
         return None
 
     def save(self, *args, **kwargs):
@@ -1426,7 +1488,7 @@ class Playlist(models.Model):
 
     class Meta:
         ordering = ["-add_date"]  # This will show newest playlists first
-        
+
 class PlaylistMedia(models.Model):
     media = models.ForeignKey(Media, on_delete=models.CASCADE)
     playlist = models.ForeignKey(Playlist, on_delete=models.CASCADE)
@@ -1466,6 +1528,7 @@ class Comment(MPTTModel):
             if self.media.state == "unlisted":
                 self.media.state = "public"
                 self.media.save(update_fields=["state"])
+                # Cache invalidation will be handled by Media.save() method
 
     def get_absolute_url(self):
         return reverse("get_media") + "?m={0}".format(self.media.friendly_token)
@@ -1901,3 +1964,28 @@ def comment_delete(sender, instance, **kwargs):
             if instance.media.comments.exclude(uid=instance.uid).count() == 0:
                 instance.media.state = "unlisted"
                 instance.media.save(update_fields=["state"])
+                # Cache invalidation will be handled by Media.save() method
+
+
+@receiver(pre_save, sender=Media)
+def media_pre_save(sender, instance, **kwargs):
+    """
+    Track state changes for cache invalidation.
+
+    This signal handler runs before Media.save() and captures the current
+    state and password from the database to compare with new values.
+    This enables automatic cache invalidation when permissions change.
+
+    The captured values are stored as private attributes on the instance
+    and used in the save() method to determine if cache invalidation is needed.
+    """
+    if instance.pk:
+        try:
+            # Get the current state from the database
+            old_instance = Media.objects.get(pk=instance.pk)
+            instance.__original_state = old_instance.state
+            instance.__original_password = old_instance.password
+        except Media.DoesNotExist:
+            # New instance
+            instance.__original_state = None
+            instance.__original_password = None
