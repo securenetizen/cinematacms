@@ -122,6 +122,23 @@ def topic_thumb_path(instance, filename):
     file_name = "{0}.{1}".format(friendly_token, helpers.get_file_name(filename))
     return settings.MEDIA_UPLOAD_DIR + "topics/{0}".format(file_name)
 
+def get_language_choices():
+    """Get language choices dynamically to avoid database access during model import"""
+    try:
+        return Language.objects.exclude(code__in=['automatic', 'automatic-translation']).values_list("code", "title")
+    except:
+        # Return empty choices if database is not ready (during migrations)
+        return []
+
+class Language(models.Model):
+    code = models.CharField(max_length=100, unique=True, help_text="language code")
+    title = models.CharField(max_length=100, help_text="language title")
+
+    class Meta:
+        ordering = ["title"]
+
+    def __str__(self):
+        return self.title
 
 class Media(models.Model):
     uid = models.UUIDField(unique=True, default=uuid.uuid4)
@@ -144,7 +161,6 @@ class Media(models.Model):
         blank=True,
         null=True,
         default="en",
-        choices=lists.video_languages,
         db_index=True,
     )
     media_country = models.CharField(
@@ -808,11 +824,14 @@ class Media(models.Model):
     @property
     def media_language_info(self):
         ret = []
-        media_language = (
-            dict(lists.video_languages).get(self.media_language, None)
-            if self.media_language
-            else None
-        )
+        media_language = None
+        if self.media_language:
+            media_language = (
+                Language.objects
+                .filter(code=self.media_language)
+                .values_list("title", flat=True)
+                .first()
+            )
         if media_language:
             ret = [
                 {
@@ -1187,12 +1206,11 @@ class MediaLanguage(models.Model):
         return None
 
     def update_language_media(self):
-        language = {
-            value: key for key, value in dict(lists.video_languages).items()
-        }.get(self.title)
+        language = Language.objects.values("code", "title").get(title=self.title)
         if language:
+            media_language = language['code']
             self.media_count = Media.objects.filter(
-                state="public", is_reviewed=True, media_language=language
+                state="public", is_reviewed=True, media_language=media_language
             ).count()
         self.save(update_fields=["media_count"])
         return True
@@ -1321,17 +1339,6 @@ class Encoding(models.Model):
         return reverse("api_get_encoding", kwargs={"encoding_id": self.id})
 
 
-class Language(models.Model):
-    code = models.CharField(max_length=100, help_text="language code")
-    title = models.CharField(max_length=100, help_text="language code")
-
-    class Meta:
-        ordering = ["title"]
-
-    def __str__(self):
-        return self.title
-
-
 class Subtitle(models.Model):
     media = models.ForeignKey(Media, on_delete=models.CASCADE, related_name="subtitles")
     language = models.ForeignKey(Language, on_delete=models.CASCADE)
@@ -1361,49 +1368,49 @@ class Subtitle(models.Model):
             Convert uploaded subtitle files to VTT format for web playback.
             Uses FFmpeg (already available in CinemataCMS) instead of pysubs2.
             Accepts both SRT and VTT input formats.
-            
+
             SAFETY: This method is ONLY called on NEW subtitle uploads, never on existing files.
             Existing subtitles in Cinemata.org remain completely untouched.
         """
         input_path = self.subtitle_file.path
-        
+
         # Validate file exists
         if not os.path.exists(input_path):
             raise Exception("Subtitle file not found")
-        
+
         # Check file extension
         file_lower = input_path.lower()
 
         if not (file_lower.endswith('.srt') or file_lower.endswith('.vtt')):
             raise Exception("Invalid subtitle format. Use SubRip (.srt) and WebVTT (.vtt) files.")
-        
+
         # If already VTT, no conversion needed
         if file_lower.endswith('.vtt'):
             return True
-        
+
         logger.info(f"Converting new subtitle upload: {input_path}")
         # Convert SRT to VTT using FFmpeg (already configured in CinemataCMS)
         with tempfile.TemporaryDirectory(dir=settings.TEMP_DIRECTORY) as tmpdirname:
             temp_vtt = os.path.join(tmpdirname, "converted.vtt")
-            
+
             cmd = [
                 settings.FFMPEG_COMMAND,  # Already configured in CinemataCMS
                 "-i", input_path,
                 "-c:s", "webvtt",
                 temp_vtt
             ]
-            
+
             try:
                 ret = helpers.run_command(cmd)
                 if ret and ret.get("returncode", 0) != 0:
                     logger.error(f"FFmpeg failed with code {ret.get('returncode')}: {ret.get('err')}")
                     raise Exception("FFmpeg conversion failed")
-                
+
                 if os.path.exists(temp_vtt) and os.path.getsize(temp_vtt) > 0:
                     # Replace original file with VTT version
                     shutil.copy2(temp_vtt, input_path)
                     logger.info(f"Successfully converted subtitle to VTT: {input_path}")
-                    
+
                     # Update file extension to .vtt if it was .srt
                     if file_lower.endswith('.srt'):
                         new_path = input_path.replace('.srt', '.vtt').replace('.SRT', '.vtt')
@@ -1415,11 +1422,11 @@ class Subtitle(models.Model):
                             logger.info(f"Renamed subtitle file from .srt to .vtt: {new_path}")
                 else:
                     raise Exception("FFmpeg conversion failed - no output file created")
-                    
+
             except Exception as e:
                 logger.error(f"Subtitle conversion failed for {input_path}: {str(e)}")
                 raise Exception(f"Could not convert SRT file to VTT format: {str(e)}")
-        
+
             return True
 
 class RatingCategory(models.Model):
@@ -1737,14 +1744,15 @@ def media_save(sender, instance, created, **kwargs):
             country.update_country_media()
 
     if instance.media_language:
-        language = {
-            key: value for key, value in dict(lists.video_languages).items()
-        }.get(instance.media_language)
-        if language:
-            language = MediaLanguage.objects.filter(title=language).first()
-        if language:
-            language.update_language_media()
-
+        language_title = dict(
+            Language.objects
+            .exclude(code__in=["automatic", "automatic-translation"])
+            .values_list("code", "title")
+        ).get(instance.media_language)
+        if language_title:
+            ml = MediaLanguage.objects.filter(title=language_title).first()
+            if ml:
+                ml.update_language_media()
     instance.update_search_vector()
     instance.transcribe_function()
 

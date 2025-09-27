@@ -6,7 +6,7 @@ from django.urls import reverse
 from django.utils.feedgenerator import Rss201rev2Feed
 
 from . import helpers, lists
-from .models import Category, Media
+from .models import Category, Media, Language
 from .stop_words import STOP_WORDS
 
 
@@ -124,10 +124,14 @@ class SearchRSSFeed(Feed):
         elif topic:
             media = media.filter(topics__title__contains=topic)
         elif language:
-            language = {
-                value: key for key, value in dict(lists.video_languages).items()
-            }.get(language)
-            media = media.filter(media_language=language)
+            code_by_title = dict(
+                Language.objects
+                .exclude(code__in=["automatic", "automatic-translation"])
+                .values_list("title", "code")
+            )
+            language_code = code_by_title.get(language)
+            if language_code:
+                media = media.filter(media_language=language_code)
         elif country:
             country = {
                 value: key for key, value in dict(lists.video_countries).items()
