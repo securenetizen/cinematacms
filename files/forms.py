@@ -94,7 +94,7 @@ class MediaForm(forms.ModelForm):
             choices=get_language_choices(),
             required=True,
             label="Media Language",
-            widget=forms.Select()
+            widget=forms.Select(),
         )
 
         self.fields[
@@ -261,8 +261,10 @@ class ContactForm(forms.Form):
         self.user = user
 
         # Only add reCAPTCHA field if keys are configured
-        if getattr(settings, 'RECAPTCHA_PUBLIC_KEY', '') and getattr(settings, 'RECAPTCHA_PRIVATE_KEY', ''):
-            self.fields['captcha'] = ReCaptchaField(widget=ReCaptchaV2Checkbox)
+        if getattr(settings, "RECAPTCHA_PUBLIC_KEY", "") and getattr(
+            settings, "RECAPTCHA_PRIVATE_KEY", ""
+        ):
+            self.fields["captcha"] = ReCaptchaField(widget=ReCaptchaV2Checkbox)
 
         if user.is_authenticated:
             self.fields.pop("name")
