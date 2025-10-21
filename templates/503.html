@@ -459,19 +459,8 @@
       <main id="content" role="main">
         <section class="panel" aria-labelledby="maint-title">
           <!-- Logo Section -->
-          <div class="logo-container">
-            <img
-              class="logo logo-light"
-              src="{{FRONTEND_HOST}}/static/images/placeholder-logo-lightbg.svg"
-              alt="{{PORTAL_NAME}}"
-              onerror="this.onerror=null; this.src='{{FRONTEND_HOST}}/static/images/placeholder-logo-lightbg.jpg'"
-            />
-            <img
-              class="logo logo-dark"
-              src="{{FRONTEND_HOST}}/static/images/placeholder-logo-darkbg.svg"
-              alt="{{PORTAL_NAME}}"
-              onerror="this.onerror=null; this.src='{{FRONTEND_HOST}}/static/images/placeholder-logo-darkbg.jpg'"
-            />
+          <div class="logo-container" id="logo-container">
+            <!-- Logo will be dynamically inserted based on MediaCMS.site.logo configuration -->
           </div>
 
           <!-- Spinner below logo -->
@@ -563,6 +552,39 @@
     </div>
 
     <script>
+      // Initialize MediaCMS object before including site configuration
+      var MediaCMS = MediaCMS || {};
+
+      // Include site configuration from site.html
+      {% include 'config/installation/site.html' %}
+
+      // Populate logos based on MediaCMS.site.logo configuration
+      (function() {
+        const logoContainer = document.getElementById('logo-container');
+
+        if (MediaCMS && MediaCMS.site && MediaCMS.site.logo) {
+          const lightLogo = document.createElement('img');
+          lightLogo.className = 'logo logo-light';
+          lightLogo.src = MediaCMS.site.logo.maintenanceLightMode.svg;
+          lightLogo.alt = MediaCMS.site.title || '{{PORTAL_NAME}}';
+          lightLogo.onerror = function() {
+            this.onerror = null;
+            this.src = MediaCMS.site.logo.maintenanceLightMode.img;
+          };
+
+          const darkLogo = document.createElement('img');
+          darkLogo.className = 'logo logo-dark';
+          darkLogo.src = MediaCMS.site.logo.maintenanceDarkMode.svg;
+          darkLogo.alt = MediaCMS.site.title || '{{PORTAL_NAME}}';
+          darkLogo.onerror = function() {
+            this.onerror = null;
+            this.src = MediaCMS.site.logo.maintenanceDarkMode.img;
+          };
+
+          logoContainer.appendChild(lightLogo);
+          logoContainer.appendChild(darkLogo);
+        } })();
+
       // Check if we're in extended maintenance mode
       const IS_EXTENDED = {{ MAINTENANCE_MODE_IS_EXTENDED|default:'false'|lower }};
 
