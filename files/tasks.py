@@ -19,7 +19,7 @@ from celery.utils.log import get_task_logger
 from django.conf import settings
 from django.core.cache import cache
 from django.core.files import File
-from django.db.models import Q
+from django.db.models import F, Q
 
 from actions.models import USER_MEDIA_ACTIONS, MediaAction
 from users.models import User
@@ -934,14 +934,16 @@ def save_user_action(
     ma.save()
 
     if action == "watch":
-        media.views += 1
-        media.save(update_fields=["views"])
+        Media.objects.filter(friendly_token=media.friendly_token).update(views=F('views') + 1)
     elif action == "report":
-        media.reported_times += 1
-
+        Media.objects.filter(friendly_token=media.friendly_token).update(
+            reported_times=F('reported_times') + 1
+        )
+        # Need to refresh to check the threshold
+        media.refresh_from_db()
         if media.reported_times >= settings.REPORTED_TIMES_THRESHOLD:
             media.state = "private"
-        media.save(update_fields=["reported_times", "state"])
+            media.save(update_fields=["state"])
 
         notify_users(
             friendly_token=media.friendly_token,
@@ -949,11 +951,9 @@ def save_user_action(
             extra=extra_info,
         )
     elif action == "like":
-        media.likes += 1
-        media.save(update_fields=["likes"])
+        Media.objects.filter(friendly_token=media.friendly_token).update(likes=F('likes') + 1)
     elif action == "dislike":
-        media.dislikes += 1
-        media.save(update_fields=["dislikes"])
+        Media.objects.filter(friendly_token=media.friendly_token).update(dislikes=F('dislikes') + 1)
 
     return True
 
@@ -1214,6 +1214,93 @@ def remove_media_file(media_file=None):
 # (and check for their encdings, and delete them as well, along with
 # all chunks)
 # 3 beat task, remove chunks
+
+
+@task(name="cleanup_orphaned_uploads", queue="short_tasks")
+def cleanup_orphaned_uploads():
+    """
+    Periodic task to clean up orphaned upload files.
+
+    Cleans up:
+    1. Incomplete chunks from cancelled uploads in CHUNKS_DIR
+    2. Complete temp files from uploads that were never saved in UPLOAD_DIR
+
+    Files/directories older than ORPHANED_UPLOAD_CLEANUP_HOURS are removed.
+    """
+    logger = get_task_logger(__name__)
+
+    # Configurable: How old (in hours) before considering files orphaned
+    cleanup_age_hours = getattr(settings, 'ORPHANED_UPLOAD_CLEANUP_HOURS', 24)
+    cleanup_age_seconds = cleanup_age_hours * 3600
+    current_time = time.time()
+
+    chunks_cleaned = 0
+    uploads_cleaned = 0
+    errors = []
+
+    # Clean up CHUNKS_DIR (incomplete/cancelled uploads)
+    chunks_dir = os.path.join(settings.MEDIA_ROOT, settings.CHUNKS_DIR)
+    if os.path.exists(chunks_dir):
+        try:
+            for uuid_dir in os.listdir(chunks_dir):
+                dir_path = os.path.join(chunks_dir, uuid_dir)
+
+                # Only process directories
+                if not os.path.isdir(dir_path):
+                    continue
+
+                # Check if directory is old enough to be considered orphaned
+                try:
+                    dir_mtime = os.path.getmtime(dir_path)
+                    if (current_time - dir_mtime) > cleanup_age_seconds:
+                        logger.info(f"Removing orphaned chunks directory: {uuid_dir}")
+                        shutil.rmtree(dir_path)
+                        chunks_cleaned += 1
+                except Exception as e:
+                    error_msg = f"Error removing chunks directory {uuid_dir}: {e}"
+                    logger.error(error_msg)
+                    errors.append(error_msg)
+        except Exception as e:
+            error_msg = f"Error listing chunks directory: {e}"
+            logger.error(error_msg)
+            errors.append(error_msg)
+
+    # Clean up UPLOAD_DIR (completed but unsaved uploads)
+    upload_dir = os.path.join(settings.MEDIA_ROOT, settings.UPLOAD_DIR)
+    if os.path.exists(upload_dir):
+        try:
+            for uuid_dir in os.listdir(upload_dir):
+                dir_path = os.path.join(upload_dir, uuid_dir)
+
+                # Only process directories
+                if not os.path.isdir(dir_path):
+                    continue
+
+                # Check if directory is old enough to be considered orphaned
+                try:
+                    dir_mtime = os.path.getmtime(dir_path)
+                    if (current_time - dir_mtime) > cleanup_age_seconds:
+                        logger.info(f"Removing orphaned upload directory: {uuid_dir}")
+                        shutil.rmtree(dir_path)
+                        uploads_cleaned += 1
+                except Exception as e:
+                    error_msg = f"Error removing upload directory {uuid_dir}: {e}"
+                    logger.error(error_msg)
+                    errors.append(error_msg)
+        except Exception as e:
+            error_msg = f"Error listing upload directory: {e}"
+            logger.error(error_msg)
+            errors.append(error_msg)
+
+    result = {
+        'chunks_cleaned': chunks_cleaned,
+        'uploads_cleaned': uploads_cleaned,
+        'errors': errors
+    }
+
+    logger.info(f"Cleanup completed: {chunks_cleaned} chunk dirs, {uploads_cleaned} upload dirs removed")
+
+    return result
 
 
 @task(name="subscribe_user", queue="short_tasks")
